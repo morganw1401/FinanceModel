@@ -303,8 +303,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
     <span class="save-indicator" id="save-indicator"></span>
     <!-- Saves menu -->
     <div id="saves-menu" style="position:relative;">
-      <button class="btn-admin" onclick="toggleSavesDropdown()" style="display:flex;align-items:center;gap:5px;">
-        <span id="current-save-label">Loading...</span> ▾
+      <button class="btn-admin" onclick="toggleSavesDropdown()" style="display:flex;align-items:center;gap:5px;color:#ccc;">
+        <span id="current-save-label" style="color:#ccc;">Loading...</span> ▾
       </button>
       <div id="saves-dropdown" style="display:none;position:absolute;right:0;top:32px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-width:320px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:500;max-height:300px;overflow-y:auto;"></div>
     </div>
@@ -667,17 +667,18 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
       <table class="dtbl" id="scen-tbl">
         <thead><tr>
           <th style="width:22%">Scenario</th>
-          <th class="r" style="width:16%">Day Rate (£)</th>
+          <th class="r" style="width:12%">Rate change (%)</th>
+          <th class="r" style="width:14%">Effective rate</th>
           <th class="r" style="width:14%">Days/Yr</th>
-          <th class="r" style="width:16%">Revenue</th>
-          <th class="r" style="width:16%">vs Current</th>
-          <th class="r" style="width:16%">Net Take-home</th>
+          <th class="r" style="width:14%">Revenue</th>
+          <th class="r" style="width:14%">vs Current</th>
+          <th class="r" style="width:10%">Net Take-home</th>
           <th style="width:30px"></th>
         </tr></thead>
         <tbody id="scen-tbody"></tbody>
       </table>
     </div>
-    <div class="insight bl" style="margin-top:8px;"><strong>Scenarios inherit the current day rate</strong> from the input above by default. Override per-scenario in the Day Rate column. Net take-home shown is after all personal tax on salary + dividends (at current dividend level).</div>
+    <div class="insight bl" style="margin-top:8px;"><strong>Scenarios apply a % change to the current day rate</strong> above. Enter a positive % for an increase, negative for a decrease (e.g. −10 for a 10% rate cut). The effective rate and revenue update instantly. Net take-home reflects current dividend and tax settings.</div>
   </div>
 </div>
 
@@ -837,9 +838,9 @@ let coExpRows = [
   {id:uid(),desc:'Insurance (PL, PI)',mo:60,cat:'Insurance',vat:false,halfVat:false,bik:false},
 ];
 let scenarios = [
-  {id:uid(),label:'Current',rate:0,days:233},
-  {id:uid(),label:'+5% increase',rate:0,days:233},
-  {id:uid(),label:'+10% increase',rate:0,days:233},
+  {id:uid(),label:'Current',pct:0,days:233},
+  {id:uid(),label:'+5% rate increase',pct:5,days:233},
+  {id:uid(),label:'+10% rate increase',pct:10,days:233},
 ];
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const DEF_DAYS=[20,20,21,20,20,20,23,20,20,22,21,20];
@@ -1294,19 +1295,27 @@ function renderScenarios(){
   const divs=parseFloat(document.getElementById('co-divs')?.value)||65000;
   const divTax=calcDivTax(divs);
   const sl=calcSL(salary+divs);
-  const bikTax=calcBIKValue()*0.40;
-  const baseNetTakeHome=salary+divs-divTax-sl-bikTax;
+  const allBikTax=(calcBIKValue()+calcExpBik().annValue)*0.40;
+  const baseNetTakeHome=salary+divs-divTax-sl-allBikTax;
 
   const tbody=document.getElementById('scen-tbody');
   if(!tbody)return;
   tbody.innerHTML=scenarios.map(s=>{
-    const rate=s.rate>0?s.rate:defRate;
-    const rev=rate*s.days;
+    const scenPct=s.pct||0;
+    const effectiveRate=defRate*(1+scenPct/100);
+    const rev=effectiveRate*s.days;
     const diff=rev-currentRev;
-    return`<tr>
+    const isCurrent=scenPct===0;
+    return`<tr class="${isCurrent?'tr-section':''}">
       <td><div class="cell"><input type="text" value="${s.label}" onchange="updScen('${s.id}','label',this.value)"></div></td>
-      <td><div class="cell r"><input type="number" value="${s.rate>0?s.rate:''}" placeholder="${defRate} (current)" oninput="updScen('${s.id}','rate',parseFloat(this.value)||0)"></div></td>
-      <td><div class="cell r"><input type="number" value="${s.days}" oninput="updScen('${s.id}','days',parseInt(this.value)||0)"></div></td>
+      <td><div class="cell r">
+        <input type="number" value="${scenPct}" step="0.5"
+          style="width:55px;text-align:right;"
+          oninput="updScen('${s.id}','pct',parseFloat(this.value)||0)">
+        <span style="font-size:11px;color:var(--text3);margin-left:2px;font-family:var(--mono)">%</span>
+      </div></td>
+      <td><div class="cell r"><span class="cv mono">${fmt(effectiveRate)}/day</span></div></td>
+      <td><div class="cell r"><input type="number" value="${s.days}" oninput="updScen('${s.id}','days',parseInt(this.value)||0)" style="width:55px;text-align:right;"></div></td>
       <td><div class="cell r"><span class="cv mono">${fmtN(rev)}</span></div></td>
       <td><div class="cell r"><span class="cv mono ${diff>0?'g':diff<0?'r':''}">${diff===0?'—':fmtD(diff)}</span></div></td>
       <td><div class="cell r"><span class="cv mono">${fmtN(baseNetTakeHome/12)}/mo</span></div></td>
@@ -1317,8 +1326,7 @@ function renderScenarios(){
 function updScen(id,f,v){const s=scenarios.find(s=>s.id===id);if(s){s[f]=v;renderScenarios();}}
 function delScen(id){scenarios=scenarios.filter(s=>s.id!==id);renderScenarios();}
 function addScenario(){
-  const defRate=parseFloat(document.getElementById('rev-rate')?.value)||545;
-  scenarios.push({id:uid(),label:'New scenario',rate:0,days:TAX.workdays});
+  scenarios.push({id:uid(),label:'New scenario',pct:0,days:TAX.workdays});
   renderScenarios();
 }
 
