@@ -1521,13 +1521,16 @@ async function sbFetch(path, method='GET', body=null) {
     headers: {
       'Content-Type': 'application/json',
       'apikey': SB_KEY,
-      'Authorization': 'Bearer ' + SB_KEY,
       'Prefer': method==='POST' ? 'return=representation' : ''
     }
   };
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(SB_URL + '/rest/v1/' + path, opts);
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    const err = await res.text();
+    console.error('Supabase error:', res.status, err);
+    throw new Error(err);
+  }
   return res.status === 204 ? null : res.json();
 }
 
