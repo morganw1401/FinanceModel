@@ -26,7 +26,9 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 .hdr-right{display:flex;align-items:center;gap:8px;}
 .btn-admin{font-family:var(--mono);font-size:10px;background:transparent;border:1px solid #444;color:#ccc;padding:4px 10px;border-radius:3px;cursor:pointer;letter-spacing:.05em;transition:all .15s;}
 .btn-admin:hover{background:#333;color:#fff;}
-.yr-badge{font-family:var(--mono);font-size:10px;color:#666;letter-spacing:.08em;}
+.btn-save{font-family:var(--mono);font-size:10px;background:var(--green);border:1px solid var(--green);color:#fff;padding:4px 10px;border-radius:3px;cursor:pointer;letter-spacing:.05em;transition:all .15s;}
+.btn-save:hover{background:var(--green-bg);color:var(--green);border-color:var(--green);}
+.save-indicator{font-family:var(--mono);font-size:10px;color:#666;letter-spacing:.06em;transition:opacity .5s;}
 
 /* Sheet tabs */
 .sheet-bar{background:var(--text);display:flex;gap:2px;padding:0 24px;border-top:1px solid #333;}
@@ -298,8 +300,27 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
   </div>
   <div class="hdr-right">
     <div class="yr-badge" id="yr-badge">2026 / 27</div>
+    <span class="save-indicator" id="save-indicator"></span>
+    <!-- Saves menu -->
+    <div id="saves-menu" style="position:relative;">
+      <button class="btn-admin" onclick="toggleSavesDropdown()" style="display:flex;align-items:center;gap:5px;">
+        <span id="current-save-label">Loading...</span> ▾
+      </button>
+      <div id="saves-dropdown" style="display:none;position:absolute;right:0;top:32px;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-width:320px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:500;max-height:300px;overflow-y:auto;"></div>
+    </div>
+    <button class="btn-save" id="btn-save-main" onclick="saveToStorage()">↓ Save</button>
+    <button class="btn-admin" id="btn-save-as" onclick="saveAs()" title="Save as new version">Save as...</button>
+    <button class="btn-admin" onclick="shareWithAccountant()" title="Generate read-only link for accountant" style="color:#a0bce0;">⤴ Share</button>
+    <button class="btn-admin" onclick="deleteSave()" style="color:#f08080;" title="Delete current save">✕</button>
     <button class="btn-admin" onclick="openAdmin()">⚙ Tax Rates</button>
   </div>
+</div>
+
+<!-- Read-only banner -->
+<div id="readonly-banner" style="display:none;background:#7a4f00;color:#fef3e0;padding:8px 24px;font-family:var(--mono);font-size:11px;align-items:center;justify-content:space-between;">
+  <span>👁 READ-ONLY VIEW — You are viewing a shared snapshot. Changes will not be saved.</span>
+  <a href="/" style="color:#fef3e0;text-decoration:underline;cursor:pointer;">Open my own calculator →</a>
+</div>
 </div>
 
 <!-- Sheet tabs -->
@@ -987,14 +1008,6 @@ function renderAll(){
   renderIR35();
 }
 
-// ── RECALC ALL ──
-function recalcAll(){
-  recalcPersonal();
-  recalcCompany();
-  recalcRevenue();
-  recalcInsights();
-}
-
 function recalcPersonal(){
   const salary=parseFloat(document.getElementById('co-salary')?.value)||12570;
   const divs=parseFloat(document.getElementById('co-divs')?.value)||65000;
@@ -1492,6 +1505,271 @@ function saveAdmin(){
   recalcAll();
 }
 
+// ══════════════════════════════════════════════════════
+// SUPABASE CONFIG
+// ══════════════════════════════════════════════════════
+const SB_URL = 'https://hcvtomdawvvblhpdacqk.supabase.co';
+const SB_KEY = 'sb_publishable_RJH0wzckI91RPIbuvF7WRQ_N12dhqkY';
+const STORAGE_KEY = 'mdw_calculator_v2';
+let currentSaveId = null;
+let currentSaveName = 'Unsaved';
+let allSaves = [];
+
+async function sbFetch(path, method='GET', body=null) {
+  const opts = {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': SB_KEY,
+      'Authorization': 'Bearer ' + SB_KEY,
+      'Prefer': method==='POST' ? 'return=representation' : ''
+    }
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(SB_URL + '/rest/v1/' + path, opts);
+  if (!res.ok) throw new Error(await res.text());
+  return res.status === 204 ? null : res.json();
+}
+
+// ── Collect current state ──
+function collectState() {
+  return {
+    pIncomeRows, pFixedRows, pVarRows, coExpRows,
+    scenarios, monthData, ir35Scores, tax: TAX,
+    inputs: {
+      salary: document.getElementById('co-salary')?.value,
+      pension: document.getElementById('co-pension')?.value,
+      divs: document.getElementById('co-divs')?.value,
+      revRate: document.getElementById('rev-rate')?.value,
+      taxcode: document.getElementById('p-taxcode')?.value,
+      yearend: document.getElementById('ins-yearend')?.value,
+    },
+    savedAt: new Date().toISOString()
+  };
+}
+
+// ── Apply loaded state ──
+function applyState(state) {
+  if (state.pIncomeRows) pIncomeRows = state.pIncomeRows;
+  if (state.pFixedRows)  pFixedRows  = state.pFixedRows;
+  if (state.pVarRows)    pVarRows    = state.pVarRows;
+  if (state.coExpRows)   coExpRows   = state.coExpRows;
+  if (state.scenarios)   scenarios   = state.scenarios;
+  if (state.monthData)   monthData   = state.monthData;
+  if (state.ir35Scores)  ir35Scores  = state.ir35Scores;
+  if (state.tax)         Object.assign(TAX, state.tax);
+  if (state.inputs) {
+    setTimeout(() => {
+      ['salary','pension','divs','revRate','taxcode','yearend'].forEach(k => {
+        const ids = {salary:'co-salary',pension:'co-pension',divs:'co-divs',revRate:'rev-rate',taxcode:'p-taxcode',yearend:'ins-yearend'};
+        const el = document.getElementById(ids[k]);
+        if (el && state.inputs[k]) el.value = state.inputs[k];
+      });
+      if (state.tax?.taxyear) {
+        const el = document.getElementById('yr-badge');
+        if (el) el.textContent = state.tax.taxyear.replace('/',' / ');
+      }
+      renderAll();
+      recalcAll();
+    }, 50);
+  }
+}
+
+// ── Load all saves from Supabase ──
+async function loadAllSaves() {
+  try {
+    const data = await sbFetch('calculator_saves?select=id,name,updated_at,share_token&order=updated_at.desc');
+    allSaves = data || [];
+    renderSavesDropdown();
+    // Auto-load most recent save
+    if (allSaves.length > 0 && !currentSaveId) {
+      await loadSave(allSaves[0].id);
+    } else if (allSaves.length === 0) {
+      // No saves yet — load from localStorage as fallback
+      loadFromLocalStorage();
+      renderAll();
+      recalcAll();
+    }
+  } catch(e) {
+    console.warn('Supabase unavailable, falling back to localStorage:', e);
+    loadFromLocalStorage();
+    renderAll();
+    recalcAll();
+  }
+}
+
+// ── Load a specific save ──
+async function loadSave(id) {
+  try {
+    setIndicator('Loading...', '#888');
+    const data = await sbFetch('calculator_saves?id=eq.' + id + '&select=*');
+    if (!data || data.length === 0) return;
+    const save = data[0];
+    currentSaveId = save.id;
+    currentSaveName = save.name;
+    applyState(save.data);
+    localStorage.setItem(STORAGE_KEY + '_lastId', id);
+    updateSaveLabel();
+    setIndicator('Loaded: ' + save.name, '#888', 3000);
+  } catch(e) {
+    setIndicator('Load failed', '#f08080', 3000);
+  }
+}
+
+// ── Save current state ──
+async function saveToStorage(newName=null) {
+  const name = newName || currentSaveName;
+  if (!name || name === 'Unsaved') {
+    const n = prompt('Name this save:', 'My figures ' + new Date().toLocaleDateString('en-GB'));
+    if (!n) return;
+    return saveToStorage(n);
+  }
+  try {
+    setIndicator('Saving...', '#888');
+    const payload = { name, data: collectState(), updated_at: new Date().toISOString() };
+    let result;
+    if (currentSaveId) {
+      result = await sbFetch('calculator_saves?id=eq.' + currentSaveId, 'PATCH', payload);
+    } else {
+      result = await sbFetch('calculator_saves', 'POST', payload);
+      if (result && result[0]) currentSaveId = result[0].id;
+    }
+    currentSaveName = name;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(collectState()));
+    localStorage.setItem(STORAGE_KEY + '_lastId', currentSaveId);
+    await loadAllSaves();
+    updateSaveLabel();
+    setIndicator('Saved ✓ — ' + name, '#5de0a0', 3000);
+  } catch(e) {
+    // Fallback to localStorage
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(collectState()));
+    setIndicator('Saved locally (offline)', '#ffd060', 3000);
+  }
+}
+
+// ── Save As (new version) ──
+async function saveAs() {
+  const n = prompt('Save as new version:', currentSaveName + ' (copy)');
+  if (!n) return;
+  currentSaveId = null;
+  await saveToStorage(n);
+}
+
+// ── Delete current save ──
+async function deleteSave() {
+  if (!currentSaveId) return;
+  if (!confirm('Delete "' + currentSaveName + '"? This cannot be undone.')) return;
+  try {
+    await sbFetch('calculator_saves?id=eq.' + currentSaveId, 'DELETE');
+    currentSaveId = null;
+    currentSaveName = 'Unsaved';
+    await loadAllSaves();
+    updateSaveLabel();
+    setIndicator('Deleted', '#f08080', 2000);
+  } catch(e) { alert('Delete failed: ' + e.message); }
+}
+
+// ── Generate share link ──
+async function shareWithAccountant() {
+  if (!currentSaveId) {
+    alert('Save your data first before sharing.');
+    return;
+  }
+  try {
+    setIndicator('Generating share link...', '#888');
+    // Generate a random token
+    const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+    await sbFetch('calculator_saves?id=eq.' + currentSaveId, 'PATCH', { share_token: token, is_readonly: true });
+    const link = window.location.origin + window.location.pathname + '?share=' + token;
+    await navigator.clipboard.writeText(link).catch(()=>{});
+    prompt('Share this read-only link with your accountant (copied to clipboard):', link);
+    setIndicator('Share link copied ✓', '#5de0a0', 3000);
+  } catch(e) { alert('Share failed: ' + e.message); }
+}
+
+// ── Load shared view (read-only) ──
+async function loadSharedView(token) {
+  try {
+    const data = await sbFetch('calculator_saves?share_token=eq.' + token + '&select=*');
+    if (!data || data.length === 0) { alert('Share link not found or expired.'); return; }
+    const save = data[0];
+    applyState(save.data);
+    currentSaveName = save.name + ' (read-only)';
+    updateSaveLabel();
+    // Show read-only banner
+    document.getElementById('readonly-banner').style.display = 'flex';
+    // Disable save buttons
+    document.getElementById('btn-save-main').disabled = true;
+    document.getElementById('btn-save-as').disabled = true;
+    setIndicator('Viewing: ' + save.name + ' (read-only)', '#ffd060', 5000);
+  } catch(e) { alert('Could not load shared data: ' + e.message); }
+}
+
+// ── Render saves dropdown ──
+function renderSavesDropdown() {
+  const dd = document.getElementById('saves-dropdown');
+  if (!dd) return;
+  dd.innerHTML = allSaves.length === 0
+    ? '<div style="padding:10px 14px;font-size:12px;color:var(--text3);">No saves yet — click Save to create one</div>'
+    : allSaves.map(s => `
+        <div onclick="loadSave('${s.id}');closeSavesDropdown()"
+          style="padding:9px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);font-size:13px;${s.id===currentSaveId?'background:var(--blue-bg);':''}"
+          onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='${s.id===currentSaveId?'var(--blue-bg)':''}'"
+        >
+          <span style="font-weight:${s.id===currentSaveId?'600':'400'}">${s.name}${s.id===currentSaveId?' ✓':''}</span>
+          <span style="font-size:11px;color:var(--text3);font-family:var(--mono)">${new Date(s.updated_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</span>
+        </div>`).join('');
+}
+
+function toggleSavesDropdown() {
+  const dd = document.getElementById('saves-dropdown');
+  dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+}
+function closeSavesDropdown() {
+  const dd = document.getElementById('saves-dropdown');
+  if (dd) dd.style.display = 'none';
+}
+
+function updateSaveLabel() {
+  const el = document.getElementById('current-save-label');
+  if (el) el.textContent = currentSaveName;
+}
+
+function setIndicator(text, color, duration=0) {
+  const ind = document.getElementById('save-indicator');
+  if (!ind) return;
+  ind.textContent = text;
+  ind.style.color = color;
+  ind.style.opacity = '1';
+  if (duration) setTimeout(() => { ind.style.opacity = '0'; }, duration);
+}
+
+// ── localStorage fallback ──
+function loadFromLocalStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    applyState(JSON.parse(raw));
+    return true;
+  } catch(e) { return false; }
+}
+
+function clearStorage() {
+  if (!confirm('Reset to defaults? This clears local storage only — cloud saves are preserved.')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  location.reload();
+}
+
+// ── Auto-save on any change ──
+function recalcAll() {
+  recalcPersonal();
+  recalcCompany();
+  recalcRevenue();
+  recalcInsights();
+  // Always keep localStorage in sync as offline fallback
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(collectState())); } catch(e) {}
+}
+
 // ── Navigation ──
 function showSheet(name,tab){
   document.querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
@@ -1503,6 +1781,20 @@ function showSheet(name,tab){
 // ── Init ──
 renderAll();
 recalcAll();
+
+// Check for share token in URL
+const urlParams = new URLSearchParams(window.location.search);
+const shareToken = urlParams.get('share');
+if (shareToken) {
+  loadSharedView(shareToken);
+} else {
+  loadAllSaves();
+}
+
+// Close dropdown on outside click
+document.addEventListener('click', e => {
+  if (!e.target.closest('#saves-menu')) closeSavesDropdown();
+});
 </script>
 </body>
 </html>
