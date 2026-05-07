@@ -344,7 +344,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
   </div>
 
   <div class="sec">
-    <div class="kpi-grid g5" id="p-kpis"></div>
+    <div class="kpi-grid g4" id="p-kpis"></div>
   </div>
 
   <!-- Tax code + income side by side -->
@@ -415,6 +415,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
         <button class="btn btn-g btn-sm" onclick="addRow('p-income','income')">+ Add</button>
       </div>
       <div class="card">
+        <div class="card-hdr">Net salary calculated from tax code above — other income entered manually</div>
         <table class="dtbl" id="p-income-tbl">
           <thead><tr>
             <th style="width:42%">Description</th>
@@ -423,6 +424,15 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
             <th style="width:10%">Type</th>
             <th style="width:30px"></th>
           </tr></thead>
+          <tbody>
+            <tr style="background:var(--blue-bg);">
+              <td><div class="cell"><span class="cv b" style="color:var(--blue);font-weight:500;">Net salary after PAYE <span style="font-size:10px;font-family:var(--mono);font-weight:400;">(calculated from tax code)</span></span></div></td>
+              <td><div class="cell r"><span class="cv mono b" id="p-net-salary-mo">£0</span></div></td>
+              <td><div class="cell r"><span class="cv mono b" id="p-net-salary-yr">£0</span></div></td>
+              <td><div class="cell"><span style="font-size:10px;font-family:var(--mono);color:var(--blue);">Salary</span></div></td>
+              <td></td>
+            </tr>
+          </tbody>
           <tbody id="p-income-tbody"></tbody>
           <tfoot><tr class="tr-total">
             <td><div class="cell"><span class="cv bold">Total income</span></div></td>
@@ -461,30 +471,86 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
     </div>
   </div>
 
-  <div class="sec">
-    <div class="sec-hdr">
-      <div class="sec-lbl">Variable Spend & Savings</div>
-      <button class="btn btn-g btn-sm" onclick="addRow('p-var','variable')">+ Add</button>
+  <div class="two-col">
+    <!-- Variable spend -->
+    <div class="sec">
+      <div class="sec-hdr">
+        <div class="sec-lbl">Variable Spend</div>
+        <button class="btn btn-g btn-sm" onclick="addRow('p-var','variable')">+ Add</button>
+      </div>
+      <div class="card">
+        <table class="dtbl" id="p-var-tbl">
+          <thead><tr>
+            <th style="width:38%">Description</th>
+            <th class="r" style="width:20%">Monthly (£)</th>
+            <th class="r" style="width:20%">Annual (£)</th>
+            <th style="width:14%">Category</th>
+            <th class="r" style="width:8%">% Net</th>
+            <th style="width:30px"></th>
+          </tr></thead>
+          <tbody id="p-var-tbody"></tbody>
+          <tfoot><tr class="tr-total">
+            <td><div class="cell"><span class="cv bold">Total variable</span></div></td>
+            <td><div class="cell r"><span class="cv mono a" id="p-var-mo">£0</span></div></td>
+            <td><div class="cell r"><span class="cv mono a" id="p-var-yr">£0</span></div></td>
+            <td colspan="3"></td>
+          </tr></tfoot>
+        </table>
+        <button class="add-row" onclick="addRow('p-var','variable')">+ Add variable row</button>
+      </div>
     </div>
+
+    <!-- Savings & investments -->
+    <div class="sec">
+      <div class="sec-hdr">
+        <div class="sec-lbl">Savings & Investments</div>
+        <button class="btn btn-g btn-sm" onclick="addRow('p-sav','savings')">+ Add</button>
+      </div>
+      <div class="card">
+        <table class="dtbl" id="p-sav-tbl">
+          <thead><tr>
+            <th style="width:32%">Description</th>
+            <th class="r" style="width:18%">Monthly (£)</th>
+            <th class="r" style="width:18%">Annual (£)</th>
+            <th style="width:12%">Category</th>
+            <th class="c" style="width:7%" title="Mark as ISA — counts toward £20k allowance">ISA?</th>
+            <th class="r" style="width:9%">% Net</th>
+            <th style="width:30px"></th>
+          </tr></thead>
+          <tbody id="p-sav-tbody"></tbody>
+          <tfoot><tr class="tr-total">
+            <td><div class="cell"><span class="cv bold">Total savings</span></div></td>
+            <td><div class="cell r"><span class="cv mono g" id="p-sav-mo">£0</span></div></td>
+            <td><div class="cell r"><span class="cv mono g" id="p-sav-yr">£0</span></div></td>
+            <td colspan="4"></td>
+          </tr></tfoot>
+        </table>
+        <button class="add-row" onclick="addRow('p-sav','savings')">+ Add savings row</button>
+      </div>
+      <div class="insight bl" style="margin-top:8px;">
+        <span id="isa-warning-text"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SA Set-aside -->
+  <div class="sec">
+    <div class="sec-hdr"><div class="sec-lbl">Self Assessment — Amount to Set Aside</div></div>
     <div class="card">
-      <table class="dtbl" id="p-var-tbl">
+      <div class="card-hdr">Based on your SA tax bill — set this aside monthly so you're never caught short in January</div>
+      <table class="dtbl">
         <thead><tr>
-          <th style="width:38%">Description</th>
-          <th class="r" style="width:18%">Monthly (£)</th>
-          <th class="r" style="width:18%">Annual (£)</th>
-          <th style="width:16%">Category</th>
-          <th class="r" style="width:10%">% of Net</th>
-          <th style="width:30px"></th>
+          <th style="width:50%">Item</th>
+          <th class="r" style="width:25%">Monthly to set aside</th>
+          <th class="r" style="width:25%">Annual SA liability</th>
         </tr></thead>
-        <tbody id="p-var-tbody"></tbody>
+        <tbody id="p-sa-tbody"></tbody>
         <tfoot><tr class="tr-total">
-          <td><div class="cell"><span class="cv bold">Total variable</span></div></td>
-          <td><div class="cell r"><span class="cv mono a" id="p-var-mo">£0</span></div></td>
-          <td><div class="cell r"><span class="cv mono a" id="p-var-yr">£0</span></div></td>
-          <td colspan="3"></td>
+          <td><div class="cell"><span class="cv bold">Total SA liability</span></div></td>
+          <td><div class="cell r"><span class="cv mono a" id="p-sa-total-mo">£0</span></div></td>
+          <td><div class="cell r"><span class="cv mono a" id="p-sa-total-yr">£0</span></div></td>
         </tr></tfoot>
       </table>
-      <button class="add-row" onclick="addRow('p-var','variable')">+ Add variable row</button>
     </div>
   </div>
 
@@ -807,8 +873,7 @@ const TAX = {
 
 // ── Data state ──
 let pIncomeRows = [
-  {id:uid(),desc:'Director salary (net of PAYE tax)',mo:1047.50,type:'Salary'},
-  {id:uid(),desc:'Dividends (gross monthly)',mo:5416.67,type:'Dividend'},
+  {id:uid(),desc:'Dividends (gross monthly)',mo:5416.67,type:'Dividend',linked:true},
   {id:uid(),desc:'Partner contribution',mo:1050,type:'Household'},
 ];
 let pFixedRows = [
@@ -823,10 +888,6 @@ let pFixedRows = [
 let pVarRows = [
   {id:uid(),desc:'Food & house purchases',mo:250,cat:'Living'},
   {id:uid(),desc:'Entertainment & other',mo:400,cat:'Living'},
-  {id:uid(),desc:'Stocks & Shares ISA',mo:1000,cat:'Investment'},
-  {id:uid(),desc:'Mortgage overpayment',mo:500,cat:'Investment'},
-  {id:uid(),desc:'Cash savings',mo:300,cat:'Savings'},
-  {id:uid(),desc:'Holiday fund',mo:300,cat:'Savings'},
 ];
 let coExpRows = [
   {id:uid(),desc:'Car lease',mo:604.79,cat:'Vehicle',vat:true,halfVat:true,bik:false},
@@ -924,47 +985,112 @@ function calcPayeOnSalary(salary, taxCodeAllowance){
 function renderRow(row,type){
   const mo=row.mo||0;
   const incOpts=['Salary','Dividend','Household','Other'].map(o=>`<option ${(row.type||'Other')===o?'selected':''}>${o}</option>`).join('');
-  const varOpts=['Living','Investment','Savings','Other'].map(o=>`<option ${(row.cat||'Other')===o?'selected':''}>${o}</option>`).join('');
+  const varOpts=['Living','Other'].map(o=>`<option ${(row.cat||'Other')===o?'selected':''}>${o}</option>`).join('');
+  const savOpts=['Investment','Savings','Pension','Other'].map(o=>`<option ${(row.cat||'Other')===o?'selected':''}>${o}</option>`).join('');
   const expOpts=['Vehicle','Professional','Equipment','Travel','Insurance','Comms','Other'].map(o=>`<option ${(row.cat||'Other')===o?'selected':''}>${o}</option>`).join('');
 
-  if(type==='income') return `
-    <td><div class="cell"><input type="text" value="${row.desc}" placeholder="Description" onchange="setField('${row.id}','${type}','desc',this.value)"></div></td>
-    <td><div class="cell r"><input type="number" value="${mo}" step="0.01" oninput="setField('${row.id}','${type}','mo',parseFloat(this.value)||0)"></div></td>
-    <td><div class="cell r"><span class="cv mono">${fmt(mo*12)}</span></div></td>
-    <td><div class="cell"><select onchange="setField('${row.id}','${type}','type',this.value)">${incOpts}</select></div></td>
-    <td><div class="cell c"><button class="del-btn" onclick="delRow('${row.id}','${type}')">×</button></div></td>`;
+  // Shared number input handler — updates row data and annual cell without full re-render
+  const numInput=(field)=>`onchange="setFieldNoRender('${row.id}','${type}','${field}',parseFloat(this.value)||0);updateAnnual('${row.id}')"`;
+
+  if(type==='income') {
+    const isLinked = row.linked;
+    return `
+    <td><div class="cell"><input type="text" value="${row.desc}" placeholder="Description" onchange="setFieldNoRender('${row.id}','${type}','desc',this.value)" ${isLinked?'readonly style="color:var(--blue);font-weight:500;"':''}></div></td>
+    <td><div class="cell r">${isLinked
+      ? `<span class="cv mono b" id="ann-${row.id}-mo" style="color:var(--blue);">${fmt(mo)}</span>`
+      : `<input type="number" value="${mo}" step="0.01" ${numInput('mo')}>`
+    }</div></td>
+    <td><div class="cell r"><span class="cv mono ${isLinked?'b':''}" id="ann-${row.id}" style="${isLinked?'color:var(--blue);':''}">${fmt(mo*12)}</span></div></td>
+    <td><div class="cell">${isLinked
+      ? `<span style="font-size:10px;font-family:var(--mono);color:var(--blue);" title="Pulled from MDW Consulting LTD → Dividends to extract">↗ Company</span>`
+      : `<select onchange="setField('${row.id}','${type}','type',this.value)">${incOpts}</select>`
+    }</div></td>
+    <td><div class="cell c">${isLinked
+      ? `<span style="font-size:11px;color:var(--text3);" title="Linked rows cannot be deleted — edit on the Company sheet">🔗</span>`
+      : `<button class="del-btn" onclick="delRow('${row.id}','${type}')">×</button>`
+    }</div></td>`
+  }
+
   if(type==='fixed') return `
-    <td><div class="cell"><input type="text" value="${row.desc}" placeholder="Description" onchange="setField('${row.id}','${type}','desc',this.value)"></div></td>
-    <td><div class="cell r"><input type="number" value="${mo}" step="0.01" oninput="setField('${row.id}','${type}','mo',parseFloat(this.value)||0)"></div></td>
-    <td><div class="cell r"><span class="cv mono">${fmt(mo*12)}</span></div></td>
+    <td><div class="cell"><input type="text" value="${row.desc}" placeholder="Description" onchange="setFieldNoRender('${row.id}','${type}','desc',this.value)"></div></td>
+    <td><div class="cell r"><input type="number" value="${mo}" step="0.01" ${numInput('mo')}></div></td>
+    <td><div class="cell r"><span class="cv mono" id="ann-${row.id}">${fmt(mo*12)}</span></div></td>
     <td><div class="cell c"><button class="del-btn" onclick="delRow('${row.id}','${type}')">×</button></div></td>`;
+
   if(type==='variable') return `
-    <td><div class="cell"><input type="text" value="${row.desc}" placeholder="Description" onchange="setField('${row.id}','${type}','desc',this.value)"></div></td>
-    <td><div class="cell r"><input type="number" value="${mo}" step="0.01" oninput="setField('${row.id}','${type}','mo',parseFloat(this.value)||0)"></div></td>
-    <td><div class="cell r"><span class="cv mono">${fmt(mo*12)}</span></div></td>
+    <td><div class="cell"><input type="text" value="${row.desc}" placeholder="Description" onchange="setFieldNoRender('${row.id}','${type}','desc',this.value)"></div></td>
+    <td><div class="cell r"><input type="number" value="${mo}" step="0.01" ${numInput('mo')}></div></td>
+    <td><div class="cell r"><span class="cv mono" id="ann-${row.id}">${fmt(mo*12)}</span></div></td>
     <td><div class="cell"><select onchange="setField('${row.id}','${type}','cat',this.value)">${varOpts}</select></div></td>
     <td><div class="cell r"><span class="cv mono" id="varpct-${row.id}">—</span></div></td>
     <td><div class="cell c"><button class="del-btn" onclick="delRow('${row.id}','${type}')">×</button></div></td>`;
+
+  if(type==='savings') return `
+    <td><div class="cell"><input type="text" value="${row.desc}" placeholder="Description" onchange="setFieldNoRender('${row.id}','${type}','desc',this.value)"></div></td>
+    <td><div class="cell r"><input type="number" value="${mo}" step="0.01" ${numInput('mo')}></div></td>
+    <td><div class="cell r"><span class="cv mono" id="ann-${row.id}">${fmt(mo*12)}</span></div></td>
+    <td><div class="cell"><select onchange="setField('${row.id}','${type}','cat',this.value)">${savOpts}</select></div></td>
+    <td><div class="cell c" title="Mark as ISA contribution — counts toward £20,000 annual allowance">
+      <input type="checkbox" ${row.isa?'checked':''} onchange="setField('${row.id}','${type}','isa',this.checked)" style="accent-color:var(--green);">
+    </div></td>
+    <td><div class="cell r"><span class="cv mono" id="savpct-${row.id}">—</span></div></td>
+    <td><div class="cell c"><button class="del-btn" onclick="delRow('${row.id}','${type}')">×</button></div></td>`;
+
   if(type==='coexp') {
     const vatReclaim=row.vat?(row.mo*12/1)*(TAX.vatrate/100)*(row.halfVat?0.5:1):0;
     const bikAnn=(row.mo||0)*12;
     const bikDisplay=row.bik?fmt(bikAnn)+'/yr':'—';
     return `
-    <td><div class="cell"><input type="text" value="${row.desc}" placeholder="Description" onchange="setField('${row.id}','${type}','desc',this.value)"></div></td>
-    <td><div class="cell r"><input type="number" value="${mo}" step="0.01" oninput="setField('${row.id}','${type}','mo',parseFloat(this.value)||0)"></div></td>
-    <td><div class="cell r"><span class="cv mono">${fmt(mo*12)}</span></div></td>
+    <td><div class="cell"><input type="text" value="${row.desc}" placeholder="Description" onchange="setFieldNoRender('${row.id}','${type}','desc',this.value)"></div></td>
+    <td><div class="cell r"><input type="number" value="${mo}" step="0.01" ${numInput('mo')}></div></td>
+    <td><div class="cell r"><span class="cv mono" id="ann-${row.id}">${fmt(mo*12)}</span></div></td>
     <td><div class="cell"><select onchange="setField('${row.id}','${type}','cat',this.value)">${expOpts}</select></div></td>
     <td><div class="cell c"><input type="checkbox" ${row.vat?'checked':''} onchange="setField('${row.id}','${type}','vat',this.checked)"></div></td>
     <td><div class="cell c"><input type="checkbox" ${row.halfVat?'checked':''} ${row.vat?'':'disabled'} title="50% VAT only (personal use)" onchange="setField('${row.id}','${type}','halfVat',this.checked)"></div></td>
     <td><div class="cell r"><span class="cv mono ${vatReclaim>0?'g':''}">${vatReclaim>0?fmt(vatReclaim)+'/yr':'—'}</span></div></td>
-    <td><div class="cell c"><input type="checkbox" ${row.bik?'checked':''} title="Taxable benefit-in-kind — adds Class 1A NIC to company and BIK tax to personal" onchange="setField('${row.id}','${type}','bik',this.checked)" style="accent-color:var(--amber)"></div></td>
+    <td><div class="cell c"><input type="checkbox" ${row.bik?'checked':''} title="Taxable benefit-in-kind" onchange="setField('${row.id}','${type}','bik',this.checked)" style="accent-color:var(--amber)"></div></td>
     <td><div class="cell r"><span class="cv mono ${row.bik?'a':''}">${bikDisplay}</span></div></td>
     <td><div class="cell c"><button class="del-btn" onclick="delRow('${row.id}','${type}')">×</button></div></td>`;
   }
 }
 
+// Separate savings rows from variable spend
+let pSavingsRows = [
+  {id:uid(),desc:'Stocks & Shares ISA',mo:1000,cat:'Investment',isa:true},
+  {id:uid(),desc:'Mortgage overpayment',mo:500,cat:'Investment',isa:false},
+  {id:uid(),desc:'Cash savings',mo:300,cat:'Savings',isa:false},
+  {id:uid(),desc:'Holiday fund',mo:300,cat:'Savings',isa:false},
+];
+
 function getArr(type){
-  return type==='income'?pIncomeRows:type==='fixed'?pFixedRows:type==='variable'?pVarRows:coExpRows;
+  return type==='income'?pIncomeRows:type==='fixed'?pFixedRows:type==='variable'?pVarRows:type==='savings'?pSavingsRows:coExpRows;
+}
+
+// Update just the annual display cell without full re-render
+function updateAnnual(id){
+  const allRows=[...pIncomeRows,...pFixedRows,...pVarRows,...pSavingsRows,...coExpRows];
+  const row=allRows.find(r=>r.id===id);
+  if(!row)return;
+  const el=document.getElementById('ann-'+id);
+  if(el)el.textContent=fmt((row.mo||0)*12);
+  recalcAll();
+}
+
+// Set field without triggering full re-render (for text/number inputs)
+function setFieldNoRender(id,type,field,value){
+  const arr=getArr(type);
+  const row=arr.find(r=>r.id===id);
+  if(!row)return;
+  row[field]=value;
+  // For coexp, update VAT reclaim display
+  if(type==='coexp'&&(field==='mo'||field==='vat'||field==='halfVat')){
+    const vatEl=document.getElementById('vat-'+id);
+    if(vatEl){
+      const vatReclaim=row.vat?(row.mo*12)*(TAX.vatrate/100)*(row.halfVat?0.5:1):0;
+      vatEl.textContent=vatReclaim>0?fmt(vatReclaim)+'/yr':'—';
+      vatEl.className='cv mono '+(vatReclaim>0?'g':'');
+    }
+  }
 }
 function setField(id,type,field,value){
   const arr=getArr(type);
@@ -977,7 +1103,14 @@ function setField(id,type,field,value){
 }
 function addRow(tbodyId,type){
   const arr=getArr(type);
-  arr.push({id:uid(),desc:'',mo:0,type:'Other',cat:'Other',vat:false,halfVat:false,bik:false});
+  const defaults={
+    income:{type:'Other'},
+    fixed:{},
+    variable:{cat:'Living'},
+    savings:{cat:'Savings'},
+    coexp:{cat:'Other',vat:false,halfVat:false,bik:false}
+  };
+  arr.push({id:uid(),desc:'',mo:0,...(defaults[type]||{})});
   renderAll();
   recalcAll();
 }
@@ -1003,6 +1136,7 @@ function renderAll(){
   render('p-income-tbody',pIncomeRows,'income');
   render('p-fixed-tbody',pFixedRows,'fixed');
   render('p-var-tbody',pVarRows,'variable');
+  render('p-sav-tbody',pSavingsRows,'savings');
   render('co-exp-tbody',coExpRows,'coexp');
   renderMonths();
   renderScenarios();
@@ -1010,44 +1144,61 @@ function renderAll(){
 }
 
 function recalcPersonal(){
+  // ── Sync linked income rows from company sheet ──
+  const divs_annual = parseFloat(document.getElementById('co-divs')?.value) || 65000;
+  pIncomeRows.forEach(r => {
+    if(r.linked && r.type === 'Dividend') {
+      r.mo = divs_annual / 12;
+    }
+  });
+
   const salary=parseFloat(document.getElementById('co-salary')?.value)||12570;
   const divs=parseFloat(document.getElementById('co-divs')?.value)||65000;
   const taxCodeStr=document.getElementById('p-taxcode')?.value||'1257L';
   const tc=parseTaxCode(taxCodeStr);
 
   // Car BIK
-  const carBikValue=calcBIKValue();
-  const bikTaxRate=TAX.hrate/100;
+  const carBikValue=calcBIKValue(); // e.g. £1,760.60
 
-  // Expense-level BIK (health insurance, gym etc.)
+  // Expense-level BIK (health insurance etc.) — always via SA
   const expBik=calcExpBik();
   const totalBikValue=carBikValue+expBik.annValue;
 
-  // Determine how car BIK is collected: via tax code reduction or SA
-  const paReduction=TAX.pa-Math.max(0,tc.allowance);
-  const carBikViaPayeEstimate=Math.min(paReduction,carBikValue)*bikTaxRate;
-  const carBikViaSA=Math.max(0,carBikValue-Math.min(paReduction,carBikValue))*bikTaxRate;
+  // How much of the car BIK taxable value is covered by the tax code reduction?
+  // The PA reduction (e.g. £2,950 for 962L vs 1257L) represents benefit value
+  // coded out — tax collected via PAYE on reduced allowance at salary marginal rate.
+  // calcPayeOnSalary already accounts for this via the reduced allowance.
+  // So we must NOT add a separate BIK-via-PAYE line — it's already in payeOnSalary.
+  // We only need to show SA tax on any BIK value NOT covered by the code reduction.
+  const paReduction=Math.max(0, TAX.pa - Math.max(0, tc.allowance));
+  const carBikCoveredByCode=Math.min(paReduction, carBikValue);
+  const carBikViaSAValue=Math.max(0, carBikValue - carBikCoveredByCode);
+  // SA tax on uncoded car BIK at higher rate
+  const carBikViaSATax=carBikViaSAValue * (TAX.hrate/100);
 
-  // Expense BIK always collected via SA (not typically coded out)
-  const expBikTax=expBik.annValue*bikTaxRate;
+  // Expense BIK always via SA at higher rate
+  const expBikTax=expBik.annValue*(TAX.hrate/100);
 
-  // Deductions
-  const payeOnSalary=calcPayeOnSalary(salary,tc.allowance);
+  // PAYE income tax — calcPayeOnSalary uses the reduced allowance from tax code
+  // which already collects the BIK tax on the coded-out portion
+  const payeOnSalary=calcPayeOnSalary(salary, tc.allowance);
   const divTax=calcDivTax(divs);
-  const empNI=0; // salary at PT
+  const empNI=0;
   const sl=calcSL(salary+divs);
 
-  const totalAnnualTax=payeOnSalary+carBikViaPayeEstimate+carBikViaSA+expBikTax+divTax+empNI+sl;
+  const totalAnnualTax=payeOnSalary+carBikViaSATax+expBikTax+divTax+empNI+sl;
   const totalMoTax=totalAnnualTax/12;
 
-  // Deductions table — line-itemise each BIK benefit
+  // Deductions table — single PAYE line covers both salary tax and coded BIK recovery
+  const codedBikNote = carBikCoveredByCode>0
+    ? ` (incl. ${fmt(carBikCoveredByCode)} BIK coded out)`
+    : '';
   const deds=[
-    {label:`Income tax via PAYE (code ${taxCodeStr})`,ann:payeOnSalary},
-    {label:`Company car BIK via PAYE (tax code adjustment)`,ann:carBikViaPayeEstimate},
-    {label:`Company car BIK via Self Assessment (P11D £${TAX.p11d.toLocaleString()}, ${TAX.bikpct}% rate)`,ann:carBikViaSA},
+    {label:`Income tax via PAYE (code ${taxCodeStr})${codedBikNote}`,ann:payeOnSalary},
+    ...(carBikViaSATax>0?[{label:`Company car BIK via Self Assessment — uncoded portion (${fmt(carBikViaSAValue)} × ${TAX.hrate}%)`,ann:carBikViaSATax}]:[]),
     ...expBik.rows.map(r=>({
-      label:`${r.desc} — BIK via SA (${fmt((r.mo||0)*12)} × ${TAX.hrate}%)`,
-      ann:(r.mo||0)*12*bikTaxRate
+      label:`${r.desc} — BIK via Self Assessment (${fmt((r.mo||0)*12)} × ${TAX.hrate}%)`,
+      ann:(r.mo||0)*12*(TAX.hrate/100)
     })),
     {label:`Dividend tax (${TAX.divbasic}% basic / ${TAX.divhigher}% higher)`,ann:divTax},
     {label:`Employee NI (salary at primary threshold — zero)`,ann:empNI},
@@ -1069,47 +1220,100 @@ function recalcPersonal(){
     <div><div style="font-size:10px;color:var(--text3);font-family:var(--mono);">PAYE TAX ON SALARY</div><div style="font-family:var(--mono);font-size:15px;font-weight:600;color:var(--red);">${fmt(payeOnSalary)}/yr</div></div>
     <div><div style="font-size:10px;color:var(--text3);font-family:var(--mono);">TOTAL BIK (CAR + BENEFITS)</div><div style="font-family:var(--mono);font-size:15px;font-weight:600;color:var(--amber);">${fmt(totalBikValue)}/yr taxable</div></div>`;
 
-  // Totals
-  const incomeMo=pIncomeRows.reduce((s,r)=>s+(r.mo||0),0);
-  const fixedMo=pFixedRows.reduce((s,r)=>s+(r.mo||0),0);
-  const varMo=pVarRows.reduce((s,r)=>s+(r.mo||0),0);
-  const netMo=incomeMo-totalMoTax;
-  const surplus=netMo-fixedMo-varMo;
+  // Totals — net salary counted at top of income
+  const salary_gross = parseFloat(document.getElementById('co-salary')?.value)||12570;
+  const netSalaryMo = (salary_gross - payeOnSalary) / 12;
+  const otherIncomeMo = pIncomeRows.reduce((s,r)=>s+(r.mo||0),0);
+  const incomeMo = netSalaryMo + otherIncomeMo; // net salary + dividends + household etc.
+  const fixedMo  = pFixedRows.reduce((s,r)=>s+(r.mo||0),0);
+  const varMo    = pVarRows.reduce((s,r)=>s+(r.mo||0),0);
+  const savMo    = pSavingsRows.reduce((s,r)=>s+(r.mo||0),0);
+  const netMo    = incomeMo - totalMoTax + payeOnSalary/12; // net salary already net of PAYE
+  // Actually simpler: total cash available = netSalary + other gross income - SA tax
+  const cashAvail = netSalaryMo + otherIncomeMo - (divTax+carBikViaSATax+expBikTax+sl)/12;
+  const surplus  = cashAvail - fixedMo - varMo - savMo;
 
-  document.getElementById('p-income-mo').textContent=fmt(incomeMo);
-  document.getElementById('p-income-yr').textContent=fmt(incomeMo*12);
-  document.getElementById('p-fixed-mo').textContent=fmt(fixedMo);
-  document.getElementById('p-fixed-yr').textContent=fmt(fixedMo*12);
-  document.getElementById('p-var-mo').textContent=fmt(varMo);
-  document.getElementById('p-var-yr').textContent=fmt(varMo*12);
+  // Net salary display
+  const netSalEl = document.getElementById('p-net-salary-mo');
+  const netSalYrEl = document.getElementById('p-net-salary-yr');
+  if(netSalEl) netSalEl.textContent = fmt(netSalaryMo);
+  if(netSalYrEl) netSalYrEl.textContent = fmt(netSalaryMo*12);
 
-  // Variable % of net
+  document.getElementById('p-income-mo').textContent = fmt(incomeMo);
+  document.getElementById('p-income-yr').textContent = fmt(incomeMo*12);
+  document.getElementById('p-fixed-mo').textContent  = fmt(fixedMo);
+  document.getElementById('p-fixed-yr').textContent  = fmt(fixedMo*12);
+  document.getElementById('p-var-mo').textContent    = fmt(varMo);
+  document.getElementById('p-var-yr').textContent    = fmt(varMo*12);
+  document.getElementById('p-sav-mo').textContent    = fmt(savMo);
+  document.getElementById('p-sav-yr').textContent    = fmt(savMo*12);
+
+  // % of available cash for variable and savings rows
   pVarRows.forEach(r=>{
     const el=document.getElementById('varpct-'+r.id);
-    if(el&&netMo>0)el.textContent=pct((r.mo||0)/netMo*100);
+    if(el&&cashAvail>0) el.textContent=pct((r.mo||0)/cashAvail*100);
+  });
+  pSavingsRows.forEach(r=>{
+    const el=document.getElementById('savpct-'+r.id);
+    if(el&&cashAvail>0) el.textContent=pct((r.mo||0)/cashAvail*100);
   });
 
+  // SA set-aside section
+  const saTotal  = divTax + carBikViaSATax + expBikTax + sl;
+  const saItems=[
+    {label:`Dividend tax (${TAX.divbasic}% basic / ${TAX.divhigher}% higher)`, ann:divTax},
+    ...(carBikViaSATax>0?[{label:`Car BIK tax — uncoded portion`, ann:carBikViaSATax}]:[]),
+    ...(expBikTax>0?[{label:`Benefits BIK tax (${expBik.rows.map(r=>r.desc).join(', ')})`, ann:expBikTax}]:[]),
+    {label:`Student loan (Plan ${TAX.slplan})`, ann:sl},
+  ].filter(d=>d.ann>0);
+  const saTbody=document.getElementById('p-sa-tbody');
+  if(saTbody) saTbody.innerHTML=saItems.map(d=>`
+    <tr>
+      <td><div class="cell"><span class="cv">${d.label}</span></div></td>
+      <td><div class="cell r"><span class="cv mono a">${fmt(d.ann/12)}</span></div></td>
+      <td><div class="cell r"><span class="cv mono a">${fmt(d.ann)}</span></div></td>
+    </tr>`).join('');
+  const saToMo=document.getElementById('p-sa-total-mo');
+  const saToYr=document.getElementById('p-sa-total-yr');
+  if(saToMo) saToMo.textContent=fmt(saTotal/12);
+  if(saToYr) saToYr.textContent=fmt(saTotal);
+
+  // ISA allowance — use isa flag (not string matching)
+  const isaAnnual=pSavingsRows.filter(r=>r.isa).reduce((s,r)=>s+(r.mo||0)*12,0);
+  const isaWarnEl=document.getElementById('isa-warning-text');
+  if(isaWarnEl){
+    if(isaAnnual>20000)
+      isaWarnEl.innerHTML=`<strong>⚠ ISA contributions ${fmt(isaAnnual)}/yr exceed the £20,000 annual allowance</strong>`;
+    else if(isaAnnual>0)
+      isaWarnEl.innerHTML=`ISA contributions: ${fmt(isaAnnual)}/yr — <strong>${fmt(20000-isaAnnual)}</strong> of £20,000 allowance remaining this tax year`;
+    else
+      isaWarnEl.innerHTML=`No rows marked as ISA — tick the ISA ✓ checkbox on savings rows that count toward your annual allowance`;
+  }
+
   document.getElementById('p-kpis').innerHTML=`
-    <div class="kpi kblue"><div class="klbl">Gross Monthly Income</div><div class="kval b">${fmt(incomeMo)}</div><div class="ksub">${fmt(incomeMo*12)}/yr</div></div>
-    <div class="kpi kred"><div class="klbl">Total Tax & Deductions</div><div class="kval r">${fmt(totalMoTax)}</div><div class="ksub">${pct(totalAnnualTax/(incomeMo*12)*100)} effective rate</div></div>
-    <div class="kpi"><div class="klbl">Net Monthly Take-home</div><div class="kval">${fmt(netMo)}</div><div class="ksub">${fmt(netMo*12)}/yr</div></div>
-    <div class="kpi kred"><div class="klbl">Fixed + Variable</div><div class="kval r">${fmt(fixedMo+varMo)}</div><div class="ksub">per month</div></div>
+    <div class="kpi kblue"><div class="klbl">Gross Monthly Income</div><div class="kval b">${fmt(incomeMo)}</div><div class="ksub">${fmt(incomeMo*12)}/yr · net salary + dividends + other</div></div>
+    <div class="kpi kblue"><div class="klbl">Net Monthly Income</div><div class="kval b">${fmt(cashAvail)}</div><div class="ksub">${fmt(cashAvail*12)}/yr · after PAYE & SA set-aside</div></div>
+    <div class="kpi kred"><div class="klbl">PAYE Tax</div><div class="kval r">${fmt(payeOnSalary/12)}</div><div class="ksub">Collected via payroll monthly</div></div>
+    <div class="kpi kamber"><div class="klbl">SA Tax (set aside)</div><div class="kval a">${fmt(saTotal/12)}</div><div class="ksub">${fmt(saTotal)}/yr due in January</div></div>
+    <div class="kpi kred"><div class="klbl">Fixed Costs</div><div class="kval r">${fmt(fixedMo)}</div><div class="ksub">${fmt(fixedMo*12)}/yr</div></div>
+    <div class="kpi kamber"><div class="klbl">Variable Spend</div><div class="kval a">${fmt(varMo)}</div><div class="ksub">${fmt(varMo*12)}/yr</div></div>
+    <div class="kpi kgreen"><div class="klbl">Savings & Investments</div><div class="kval g">${fmt(savMo)}</div><div class="ksub">${fmt(savMo*12)}/yr · ISA ${fmt(isaAnnual)}/yr</div></div>
     <div class="kpi ${surplus>=0?'kgreen':'kred'}"><div class="klbl">Monthly ${surplus>=0?'Surplus':'Shortfall'}</div><div class="kval ${surplus>=0?'g':'r'}">${surplus>=0?'':'-'}${fmt(Math.abs(surplus))}</div><div class="ksub">After all costs & savings</div></div>`;
 
   document.getElementById('p-summary-rows').innerHTML=`
-    <div class="sbar-row"><span class="sl">Gross income</span><span class="sv g">${fmt(incomeMo)}/mo</span></div>
-    <div class="sbar-row"><span class="sl">PAYE tax (salary + car BIK via code)</span><span class="sv r">−${fmt((payeOnSalary+carBikViaPayeEstimate)/12)}/mo</span></div>
-    <div class="sbar-row"><span class="sl">SA tax (dividends, BIK, SL)</span><span class="sv r">−${fmt((divTax+carBikViaSA+expBikTax+sl)/12)}/mo</span></div>
+    <div class="sbar-row"><span class="sl">Net salary (after PAYE)</span><span class="sv g">${fmt(netSalaryMo)}/mo</span></div>
+    <div class="sbar-row"><span class="sl">Other income (dividends, household etc.)</span><span class="sv g">${fmt(otherIncomeMo)}/mo</span></div>
+    <div class="sbar-row"><span class="sl">SA tax to set aside</span><span class="sv a">−${fmt(saTotal/12)}/mo</span></div>
     <div class="sbar-row"><span class="sl">Fixed costs</span><span class="sv r">−${fmt(fixedMo)}/mo</span></div>
-    <div class="sbar-row"><span class="sl">Variable & savings</span><span class="sv a">−${fmt(varMo)}/mo</span></div>
+    <div class="sbar-row"><span class="sl">Variable spend</span><span class="sv a">−${fmt(varMo)}/mo</span></div>
+    <div class="sbar-row"><span class="sl">Savings & investments</span><span class="sv g">−${fmt(savMo)}/mo</span></div>
     <hr class="sbar-div">
     <div class="sbar-total"><span class="sl">${surplus>=0?'Surplus':'Shortfall'}</span><span class="sv ${surplus>=0?'g':'r'}">${surplus>=0?'':'-'}${fmt(Math.abs(surplus))}/mo</span></div>`;
 
-  const isaRow=pVarRows.find(r=>r.desc.toLowerCase().includes('isa'));
   let ins=surplus>=0?`<strong>Cashflow healthy.</strong> ${fmt(surplus)}/month surplus after all costs and savings. `:`<strong>Cashflow shortfall of ${fmt(Math.abs(surplus))}/month</strong> — review variable spend or savings allocations. `;
-  if(tc.type==='k') ins+=` <strong>K code detected:</strong> HMRC is collecting additional tax through PAYE because your BIK value exceeds your personal allowance. Check your tax code with HMRC to confirm the P11D values are correct.`;
-  if(expBik.annValue>0) ins+=` <strong>Benefits BIK:</strong> ${expBik.rows.map(r=>r.desc).join(', ')} are taxable benefits — ${fmt(expBikTax)}/yr added to your personal tax bill via Self Assessment at ${TAX.hrate}%.`;
-  if((isaRow?.mo||0)*12>20000) ins+=` <strong style="color:var(--amber)">Warning:</strong> ISA contributions exceed the £20,000/yr allowance.`;
+  if(tc.type==='k') ins+=` <strong>K code detected:</strong> HMRC is collecting additional tax via PAYE because your BIK value exceeds your personal allowance.`;
+  if(carBikCoveredByCode>0) ins+=` <strong>Tax code ${taxCodeStr}:</strong> ${fmt(carBikCoveredByCode)} of car BIK collected via PAYE — not charged again via SA.`;
+  if(expBik.annValue>0) ins+=` <strong>Benefits BIK:</strong> ${expBik.rows.map(r=>r.desc).join(', ')} — ${fmt(expBikTax)}/yr personal tax via SA.`;
   document.getElementById('p-insight').innerHTML=ins;
 }
 
@@ -1545,7 +1749,7 @@ async function sbFetch(path, method='GET', body=null) {
 // ── Collect current state ──
 function collectState() {
   return {
-    pIncomeRows, pFixedRows, pVarRows, coExpRows,
+    pIncomeRows, pFixedRows, pVarRows, pSavingsRows, coExpRows,
     scenarios, monthData, ir35Scores, tax: TAX,
     inputs: {
       salary: document.getElementById('co-salary')?.value,
@@ -1564,6 +1768,7 @@ function applyState(state) {
   if (state.pIncomeRows) pIncomeRows = state.pIncomeRows;
   if (state.pFixedRows)  pFixedRows  = state.pFixedRows;
   if (state.pVarRows)    pVarRows    = state.pVarRows;
+  if (state.pSavingsRows) pSavingsRows = state.pSavingsRows;
   if (state.coExpRows)   coExpRows   = state.coExpRows;
   if (state.scenarios)   scenarios   = state.scenarios;
   if (state.monthData)   monthData   = state.monthData;
