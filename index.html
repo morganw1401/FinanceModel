@@ -1842,9 +1842,23 @@ function applyState(state) {
   if (state.ir35Scores)  ir35Scores  = state.ir35Scores;
   if (state.tax)         Object.assign(TAX, state.tax);
 
-  // Always re-render — inputs restoration happens in setTimeout to ensure DOM is ready
+  // Always ensure the linked dividend row exists and is correctly flagged
+  const hasDivLinked = pIncomeRows.some(r => r.linked && r.type === 'Dividend');
+  if (!hasDivLinked) {
+    // Remove any unlocked dividend rows and replace with linked one
+    pIncomeRows = pIncomeRows.filter(r => r.type !== 'Dividend');
+    pIncomeRows.unshift({id:uid(), desc:'Dividends (gross monthly)', mo:0, type:'Dividend', linked:true});
+  } else {
+    // Ensure it's at the top
+    const idx = pIncomeRows.findIndex(r => r.linked && r.type === 'Dividend');
+    if (idx > 0) {
+      const row = pIncomeRows.splice(idx, 1)[0];
+      pIncomeRows.unshift(row);
+    }
+  }
+
+  // Always re-render after state is applied
   setTimeout(() => {
-    // Restore direct inputs if present
     if (state.inputs) {
       const ids = {salary:'co-salary',pension:'co-pension',divs:'co-divs',revRate:'rev-rate',taxcode:'p-taxcode',yearend:'ins-yearend'};
       ['salary','pension','divs','revRate','taxcode','yearend'].forEach(k => {
