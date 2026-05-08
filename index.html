@@ -953,7 +953,6 @@ let scenarios = [
 ];
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 let monthData=MONTHS.map(m=>({name:m,days:0,rate:0}));
-let ir35Scores = IR35_FACTORS.map(()=>1);
 
 const IR35_FACTORS = [
   {label:'Client location',desc:'Is your end client UK-based or overseas? CRITICAL: if the client is based outside the UK, IR35 off-payroll rules do not apply — the responsibility for determining status falls on the worker, not the client.',options:['UK-based client (IR35 rules apply)','Mixed UK/overseas','Overseas client only (IR35 off-payroll does not apply)'],critical:true},
@@ -1102,13 +1101,7 @@ function renderRow(row,type){
   }
 }
 
-// Separate savings rows from variable spend
-let pSavingsRows = [
-  {id:uid(),desc:'Stocks & Shares ISA',mo:1000,cat:'Investment',isa:true},
-  {id:uid(),desc:'Mortgage overpayment',mo:500,cat:'Investment',isa:false},
-  {id:uid(),desc:'Cash savings',mo:300,cat:'Savings',isa:false},
-  {id:uid(),desc:'Holiday fund',mo:300,cat:'Savings',isa:false},
-];
+// Savings rows are declared above in data state as blank arrays
 
 function getArr(type){
   return type==='income'?pIncomeRows:type==='fixed'?pFixedRows:type==='variable'?pVarRows:type==='savings'?pSavingsRows:coExpRows;
