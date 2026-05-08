@@ -181,8 +181,14 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 .dl-label{font-size:12px;color:var(--text2);}
 .dl-note{font-size:11px;color:var(--text3);margin-top:2px;}
 
-/* VAT badge */
-.vat-badge{font-family:var(--mono);font-size:9px;background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-border);border-radius:2px;padding:1px 5px;}
+/* Owner admin panel */
+.admin-panel-bar{background:#1a1916;border-bottom:2px solid var(--amber);padding:0 24px;display:none;}
+.admin-panel-bar.visible{display:flex;align-items:center;gap:12px;}
+.admin-tag{font-family:var(--mono);font-size:10px;font-weight:600;color:var(--amber);letter-spacing:.1em;border:1px solid var(--amber);padding:2px 8px;border-radius:2px;}
+.user-pill{font-family:var(--mono);font-size:11px;color:#ccc;background:#2a2a28;border:1px solid #444;border-radius:3px;padding:3px 10px;cursor:pointer;transition:all .15s;}
+.user-pill:hover,.user-pill.active-user{background:var(--amber);color:#1a1916;border-color:var(--amber);font-weight:600;}
+.user-pill.viewing{background:#3d2e0a;color:var(--amber);border-color:var(--amber);}
+
 
 @media(max-width:900px){
   .g4,.g5{grid-template-columns:repeat(2,1fr);}
@@ -284,6 +290,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
           <div class="afield"><label>Flat Rate % (if applicable)</label><input id="a-flatrate" type="number" step="0.01" value="14.5"></div>
         </div>
       </div>
+      <div class="msec" style="margin-bottom:0;margin-top:16px;">
+        <div class="msec-title">Owner Admin — Authorised Emails</div>
+        <p style="font-size:11px;color:var(--text3);margin-bottom:10px;line-height:1.6;">Users with these email addresses see the 👑 Admin button and can view any user's saves in read-only mode. One email per line.</p>
+        <textarea id="a-owner-emails" rows="4" style="font-family:var(--mono);font-size:12px;width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:8px 10px;outline:none;resize:vertical;color:var(--text);" placeholder="email@example.com&#10;another@example.com"></textarea>
+      </div>
     </div>
     <div class="modal-ftr">
       <button class="btn btn-g" onclick="closeAdmin()">Cancel</button>
@@ -300,6 +311,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
   </div>
   <div class="hdr-right">
     <div class="yr-badge" id="yr-badge">2026 / 27</div>
+    <div class="yr-badge" id="user-badge" style="color:#5de0a0;border:1px solid #1a4a36;padding:3px 8px;border-radius:3px;"></div>
     <span class="save-indicator" id="save-indicator"></span>
     <!-- Saves menu -->
     <div id="saves-menu" style="position:relative;">
@@ -313,6 +325,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
     <button class="btn-admin" onclick="shareWithAccountant()" title="Generate read-only link for accountant" style="color:#a0bce0;">⤴ Share</button>
     <button class="btn-admin" onclick="deleteSave()" style="color:#f08080;" title="Delete current save">✕</button>
     <button class="btn-admin" onclick="openAdmin()">⚙ Tax Rates</button>
+    <button class="btn-admin" id="btn-owner-admin" onclick="openOwnerAdmin()" style="display:none;color:var(--amber);border-color:#553300;">👑 Admin</button>
   </div>
 </div>
 
@@ -320,6 +333,15 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 <div id="readonly-banner" style="display:none;background:#7a4f00;color:#fef3e0;padding:8px 24px;font-family:var(--mono);font-size:11px;align-items:center;justify-content:space-between;">
   <span>👁 READ-ONLY VIEW — You are viewing a shared snapshot. Changes will not be saved.</span>
   <a href="/" style="color:#fef3e0;text-decoration:underline;cursor:pointer;">Open my own calculator →</a>
+</div>
+
+<!-- Owner admin bar -->
+<div class="admin-panel-bar" id="admin-panel-bar">
+  <div class="admin-tag">OWNER VIEW</div>
+  <span style="font-size:11px;color:#888;font-family:var(--mono);">Viewing as:</span>
+  <div id="user-pills" style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 0;flex:1;"></div>
+  <span id="admin-viewing-label" style="font-family:var(--mono);font-size:11px;color:var(--amber);margin-right:10px;"></span>
+  <button onclick="exitAdminView()" style="font-family:var(--mono);font-size:10px;background:transparent;border:1px solid #444;color:#888;padding:3px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;">✕ Exit admin view</button>
 </div>
 </div>
 
@@ -359,7 +381,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
           <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px;">
             <div style="flex:1;">
               <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:5px;">TAX CODE</div>
-              <input type="text" id="p-taxcode" value="1257L" maxlength="10" oninput="updateTaxCode()"
+              <input type="text" id="p-taxcode" value="" maxlength="10" oninput="updateTaxCode()"
                 style="font-family:var(--mono);font-size:22px;font-weight:600;color:var(--blue);border:1px solid var(--border);border-radius:4px;padding:6px 10px;width:100%;outline:none;background:var(--surface2);">
             </div>
             <div style="flex:1;">
@@ -579,11 +601,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
         <table class="dtbl">
           <tbody>
             <tr><td><div class="cell"><span class="cv">Director salary (annual)</span></div></td>
-                <td><div class="cell r"><input type="number" id="co-salary" value="12570" oninput="recalcAll()"></div></td></tr>
+                <td><div class="cell r"><input type="number" id="co-salary" value="0" oninput="recalcAll()"></div></td></tr>
             <tr><td><div class="cell"><span class="cv">Employer pension (annual)</span></div></td>
-                <td><div class="cell r"><input type="number" id="co-pension" value="10200" oninput="recalcAll()"></div></td></tr>
+                <td><div class="cell r"><input type="number" id="co-pension" value="0" oninput="recalcAll()"></div></td></tr>
             <tr><td><div class="cell"><span class="cv">Dividends to extract (annual)</span></div></td>
-                <td><div class="cell r"><input type="number" id="co-divs" value="65000" oninput="recalcAll()"></div></td></tr>
+                <td><div class="cell r"><input type="number" id="co-divs" value="0" oninput="recalcAll()"></div></td></tr>
           </tbody>
         </table>
       </div>
@@ -690,7 +712,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
       <div class="sec-lbl">Monthly Breakdown</div>
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:11px;color:var(--text3);font-family:var(--mono)">Current day rate:</span>
-        <input type="number" id="rev-rate" value="545" oninput="recalcRevenue()"
+        <input type="number" id="rev-rate" value="0" oninput="recalcRevenue()"
           style="font-family:var(--mono);font-size:13px;font-weight:600;width:75px;border:1px solid var(--border);border-radius:3px;padding:4px 8px;background:var(--surface);color:var(--text);outline:none;">
         <span style="font-size:11px;color:var(--text3);font-family:var(--mono)">/day</span>
       </div>
@@ -871,41 +893,67 @@ const TAX = {
   vatrate:20, vatscheme:'standard', flatrate:14.5
 };
 
-// ── Data state ──
+// ── Current user ──
+let currentUser = null; // set after Cloudflare identity check
+
+async function getCurrentUser() {
+  try {
+    const res = await fetch('https://calculator.mdwconsultingltd.com/cdn-cgi/access/get-identity');
+    if (res.ok) {
+      const data = await res.json();
+      currentUser = data.email || 'anonymous';
+    }
+  } catch(e) {
+    currentUser = localStorage.getItem('mdw_user_id') || 'user_' + Math.random().toString(36).slice(2,10);
+    localStorage.setItem('mdw_user_id', currentUser);
+  }
+  const el = document.getElementById('user-badge');
+  if (el) el.textContent = currentUser;
+  // Show admin button if owner
+  if (isOwner()) {
+    const btn = document.getElementById('btn-owner-admin');
+    if (btn) btn.style.display = 'inline-flex';
+  }
+}
+
+// ── Blank data state — no hardcoded values ──
+function freshState() {
+  return {
+    pIncomeRows: [
+      {id:uid(),desc:'Dividends (gross monthly)',mo:0,type:'Dividend',linked:true},
+    ],
+    pFixedRows: [],
+    pVarRows: [],
+    pSavingsRows: [],
+    coExpRows: [],
+    scenarios: [
+      {id:uid(),label:'Current',pct:0,days:0},
+      {id:uid(),label:'+5%',pct:5,days:0},
+      {id:uid(),label:'+10%',pct:10,days:0},
+    ],
+    monthData: MONTHS.map(m=>({name:m,days:0,rate:0})),
+    ir35Scores: IR35_FACTORS.map(()=>1),
+    tax: {...TAX},
+    inputs: {salary:'0',pension:'0',divs:'0',revRate:'0',taxcode:'',yearend:'2026-03-31'},
+  };
+}
+
+// ── Data state — starts blank ──
 let pIncomeRows = [
-  {id:uid(),desc:'Dividends (gross monthly)',mo:5416.67,type:'Dividend',linked:true},
-  {id:uid(),desc:'Partner contribution',mo:1050,type:'Household'},
+  {id:uid(),desc:'Dividends (gross monthly)',mo:0,type:'Dividend',linked:true},
 ];
-let pFixedRows = [
-  {id:uid(),desc:'Mortgage (standard repayment)',mo:2527.00},
-  {id:uid(),desc:'Service charge',mo:312.95},
-  {id:uid(),desc:'Council tax & bills',mo:189.47},
-  {id:uid(),desc:'Apple Care',mo:20.47},
-  {id:uid(),desc:'Streaming subscriptions',mo:8.99},
-  {id:uid(),desc:'Income protection insurance',mo:29.33},
-  {id:uid(),desc:'Travel insurance',mo:17.50},
-];
-let pVarRows = [
-  {id:uid(),desc:'Food & house purchases',mo:250,cat:'Living'},
-  {id:uid(),desc:'Entertainment & other',mo:400,cat:'Living'},
-];
-let coExpRows = [
-  {id:uid(),desc:'Car lease',mo:604.79,cat:'Vehicle',vat:true,halfVat:true,bik:false},
-  {id:uid(),desc:'Professional subscriptions',mo:100,cat:'Professional',vat:false,halfVat:false,bik:false},
-  {id:uid(),desc:'Office & equipment',mo:150,cat:'Equipment',vat:true,halfVat:false,bik:false},
-  {id:uid(),desc:'Travel & accommodation',mo:200,cat:'Travel',vat:false,halfVat:false,bik:false},
-  {id:uid(),desc:'Accountancy fees',mo:150,cat:'Professional',vat:true,halfVat:false,bik:false},
-  {id:uid(),desc:'Mobile phone (business %)',mo:30,cat:'Comms',vat:true,halfVat:false,bik:false},
-  {id:uid(),desc:'Insurance (PL, PI)',mo:60,cat:'Insurance',vat:false,halfVat:false,bik:false},
-];
+let pFixedRows = [];
+let pVarRows = [];
+let pSavingsRows = [];
+let coExpRows = [];
 let scenarios = [
-  {id:uid(),label:'Current',pct:0,days:233},
-  {id:uid(),label:'+5% rate increase',pct:5,days:233},
-  {id:uid(),label:'+10% rate increase',pct:10,days:233},
+  {id:uid(),label:'Current',pct:0,days:0},
+  {id:uid(),label:'+5%',pct:5,days:0},
+  {id:uid(),label:'+10%',pct:10,days:0},
 ];
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const DEF_DAYS=[20,20,21,20,20,20,23,20,20,22,21,20];
-let monthData=MONTHS.map((m,i)=>({name:m,days:DEF_DAYS[i],rate:0}));
+let monthData=MONTHS.map(m=>({name:m,days:0,rate:0}));
+let ir35Scores = IR35_FACTORS.map(()=>1);
 
 const IR35_FACTORS = [
   {label:'Client location',desc:'Is your end client UK-based or overseas? CRITICAL: if the client is based outside the UK, IR35 off-payroll rules do not apply — the responsibility for determining status falls on the worker, not the client.',options:['UK-based client (IR35 rules apply)','Mixed UK/overseas','Overseas client only (IR35 off-payroll does not apply)'],critical:true},
@@ -1145,15 +1193,15 @@ function renderAll(){
 
 function recalcPersonal(){
   // ── Sync linked income rows from company sheet ──
-  const divs_annual = parseFloat(document.getElementById('co-divs')?.value) || 65000;
+  const divs_annual = parseFloat(document.getElementById('co-divs')?.value) || 0;
   pIncomeRows.forEach(r => {
     if(r.linked && r.type === 'Dividend') {
       r.mo = divs_annual / 12;
     }
   });
 
-  const salary=parseFloat(document.getElementById('co-salary')?.value)||12570;
-  const divs=parseFloat(document.getElementById('co-divs')?.value)||65000;
+  const salary=parseFloat(document.getElementById('co-salary')?.value)||0;
+  const divs=parseFloat(document.getElementById('co-divs')?.value)||0;
   const taxCodeStr=document.getElementById('p-taxcode')?.value||'1257L';
   const tc=parseTaxCode(taxCodeStr);
 
@@ -1221,7 +1269,7 @@ function recalcPersonal(){
     <div><div style="font-size:10px;color:var(--text3);font-family:var(--mono);">TOTAL BIK (CAR + BENEFITS)</div><div style="font-family:var(--mono);font-size:15px;font-weight:600;color:var(--amber);">${fmt(totalBikValue)}/yr taxable</div></div>`;
 
   // Totals — net salary counted at top of income
-  const salary_gross = parseFloat(document.getElementById('co-salary')?.value)||12570;
+  const salary_gross = parseFloat(document.getElementById('co-salary')?.value)||0;
   const netSalaryMo = (salary_gross - payeOnSalary) / 12;
   const otherIncomeMo = pIncomeRows.reduce((s,r)=>s+(r.mo||0),0);
   const incomeMo = netSalaryMo + otherIncomeMo; // net salary + dividends + household etc.
@@ -1495,8 +1543,8 @@ function renderScenarios(){
   const defRate=parseFloat(document.getElementById('rev-rate')?.value)||545;
   const totalDays=monthData.reduce((s,m)=>s+m.days,0);
   const currentRev=totalDays*defRate;
-  const salary=parseFloat(document.getElementById('co-salary')?.value)||12570;
-  const divs=parseFloat(document.getElementById('co-divs')?.value)||65000;
+  const salary=parseFloat(document.getElementById('co-salary')?.value)||0;
+  const divs=parseFloat(document.getElementById('co-divs')?.value)||0;
   const divTax=calcDivTax(divs);
   const sl=calcSL(salary+divs);
   const allBikTax=(calcBIKValue()+calcExpBik().annValue)*0.40;
@@ -1536,8 +1584,8 @@ function addScenario(){
 
 function recalcInsights(){
   const pension=parseFloat(document.getElementById('co-pension')?.value)||0;
-  const salary=parseFloat(document.getElementById('co-salary')?.value)||12570;
-  const divs=parseFloat(document.getElementById('co-divs')?.value)||65000;
+  const salary=parseFloat(document.getElementById('co-salary')?.value)||0;
+  const divs=parseFloat(document.getElementById('co-divs')?.value)||0;
   const rev=parseFloat(document.getElementById('co-rev-disp')?.dataset.raw)||0;
 
   // Pension optimiser
@@ -1545,7 +1593,7 @@ function recalcInsights(){
   document.getElementById('ins-pension-room').textContent=fmtN(Math.max(0,TAX.pensionallow-pension));
   document.getElementById('ins-pension-ct').textContent=fmtN(pension*0.265);
   const penSlider=document.getElementById('ins-pen-slider');
-  if(penSlider&&parseFloat(penSlider.value)===10200)penSlider.value=pension;
+  
   updatePensionModel();
 
   // Dividend bands
@@ -1602,13 +1650,13 @@ function formatYearEnd(dateStr){
 function updatePensionModel(){
   const input=document.getElementById('ins-pen-input');
   const slider=document.getElementById('ins-pen-slider');
-  const val=parseFloat((input||slider)?.value)||10200;
+  const val=parseFloat((input||slider)?.value)||0;
   if(input)input.value=val;
   if(slider)slider.value=val;
   document.getElementById('ins-pen-slider-val').textContent='';
   const rev=parseFloat(document.getElementById('co-rev-disp')?.dataset.raw)||0;
-  const salary=parseFloat(document.getElementById('co-salary')?.value)||12570;
-  const divs=parseFloat(document.getElementById('co-divs')?.value)||65000;
+  const salary=parseFloat(document.getElementById('co-salary')?.value)||0;
+  const divs=parseFloat(document.getElementById('co-divs')?.value)||0;
   const expAnn=coExpRows.reduce((s,r)=>s+(r.mo||0),0)*12;
   const erNI=calcErNI(salary);
   const bikClass1A=calcBIKValue()*TAX.ernirate/100;
@@ -1630,7 +1678,7 @@ function updatePensionModel(){
 function updateSalaryModel(){
   const input=document.getElementById('ins-sal-input');
   const slider=document.getElementById('ins-sal-slider');
-  const sal=parseFloat((input||slider)?.value)||12570;
+  const sal=parseFloat((input||slider)?.value)||0;
   if(input)input.value=sal;
   if(slider)slider.value=sal;
   document.getElementById('ins-sal-val').textContent='';
@@ -1706,12 +1754,28 @@ function updateIR35(){
 }
 
 // ── Admin ──
-function openAdmin(){Object.keys(TAX).forEach(k=>{const el=document.getElementById('a-'+k);if(el)el.value=TAX[k];});document.getElementById('admin-modal').classList.add('open');}
+function openAdmin(){
+  Object.keys(TAX).forEach(k=>{const el=document.getElementById('a-'+k);if(el)el.value=TAX[k];});
+  // Populate owner emails textarea
+  const emailsEl = document.getElementById('a-owner-emails');
+  if (emailsEl) emailsEl.value = OWNER_EMAILS.join('\n');
+  document.getElementById('admin-modal').classList.add('open');
+}
 function closeAdmin(){document.getElementById('admin-modal').classList.remove('open');}
 function saveAdmin(){
   ['taxyear','yearend','slplan'].forEach(k=>{const el=document.getElementById('a-'+k);if(el)TAX[k]=el.value;});
   ['workdays','pa','brt','hrt','brate','hrate','arate','divallow','divbasic','divhigher','divadd','nipt','niuel','nirate','niupper','ernist','ernirate','ctsmall','ctmain','ctlower','ctupper','slthresh','slrate','p11d','bikpct','pensionallow','vatrate','flatrate'].forEach(k=>{const el=document.getElementById('a-'+k);if(el)TAX[k]=parseFloat(el.value)||0;});
   const vs=document.getElementById('a-vatscheme');if(vs)TAX.vatscheme=vs.value;
+  // Update owner emails
+  const emailsEl = document.getElementById('a-owner-emails');
+  if (emailsEl) {
+    const emails = emailsEl.value.split('\n').map(e=>e.trim().toLowerCase()).filter(Boolean);
+    OWNER_EMAILS.length = 0;
+    OWNER_EMAILS.push(...emails);
+    // Show/hide admin button based on updated list
+    const btn = document.getElementById('btn-owner-admin');
+    if (btn) btn.style.display = isOwner() ? 'inline-flex' : 'none';
+  }
   document.getElementById('yr-badge').textContent=TAX.taxyear.replace('/',' / ');
   closeAdmin();
   recalcAll();
@@ -1723,9 +1787,19 @@ function saveAdmin(){
 const SB_URL = 'https://hcvtomdawvvblhpdacqk.supabase.co';
 const SB_KEY = 'sb_publishable_RJH0wzckI91RPIbuvF7WRQ_N12dhqkY';
 const STORAGE_KEY = 'mdw_calculator_v2';
+
+// ── Owner admin config — add email addresses of owners here ──
+// These users see the 👑 Admin button and can view any user's saves
+const OWNER_EMAILS = [
+  'morgan@mdwconsultingltd.com',  // replace with your actual email
+];
+
 let currentSaveId = null;
 let currentSaveName = 'Unsaved';
 let allSaves = [];
+let isAdminMode = false;
+let adminViewingUser = null;
+let allUsersCache = [];
 
 async function sbFetch(path, method='GET', body=null) {
   const opts = {
@@ -1791,20 +1865,20 @@ function applyState(state) {
   }
 }
 
-// ── Load all saves from Supabase ──
+// ── Load all saves from Supabase — filtered by current user ──
 async function loadAllSaves() {
   try {
-    const data = await sbFetch('calculator_saves?select=id,name,updated_at,share_token&order=updated_at.desc');
+    const userFilter = currentUser ? `&user_email=eq.${encodeURIComponent(currentUser)}` : '';
+    const data = await sbFetch('calculator_saves?select=id,name,updated_at,share_token&order=updated_at.desc' + userFilter);
     allSaves = data || [];
     renderSavesDropdown();
-    // Auto-load most recent save
     if (allSaves.length > 0 && !currentSaveId) {
       await loadSave(allSaves[0].id);
     } else if (allSaves.length === 0) {
-      // No saves yet — load from localStorage as fallback
-      loadFromLocalStorage();
+      // Brand new user — start fresh, don't load localStorage from another user
       renderAll();
       recalcAll();
+      setIndicator('Welcome — click Save to create your first save', '#888', 5000);
     }
   } catch(e) {
     console.warn('Supabase unavailable, falling back to localStorage:', e);
@@ -1815,18 +1889,23 @@ async function loadAllSaves() {
 }
 
 // ── Load a specific save ──
-async function loadSave(id) {
+async function loadSave(id, readOnly=false) {
   try {
     setIndicator('Loading...', '#888');
     const data = await sbFetch('calculator_saves?id=eq.' + id + '&select=*');
     if (!data || data.length === 0) return;
     const save = data[0];
-    currentSaveId = save.id;
-    currentSaveName = save.name;
+    currentSaveId = readOnly ? null : save.id; // don't allow overwrite in admin view
+    currentSaveName = save.name + (readOnly ? ' (read-only)' : '');
     applyState(save.data);
-    localStorage.setItem(STORAGE_KEY + '_lastId', id);
+    if (!readOnly) localStorage.setItem(STORAGE_KEY + '_lastId', id);
     updateSaveLabel();
-    setIndicator('Loaded: ' + save.name, '#888', 3000);
+    // Disable save buttons in admin view
+    const btnSave = document.getElementById('btn-save-main');
+    const btnAs = document.getElementById('btn-save-as');
+    if (btnSave) btnSave.disabled = readOnly;
+    if (btnAs) btnAs.disabled = readOnly;
+    setIndicator((readOnly ? '👁 Viewing: ' : 'Loaded: ') + save.name, readOnly ? '#ffd060' : '#888', 3000);
   } catch(e) {
     setIndicator('Load failed', '#f08080', 3000);
   }
@@ -1842,7 +1921,7 @@ async function saveToStorage(newName=null) {
   }
   try {
     setIndicator('Saving...', '#888');
-    const payload = { name, data: collectState(), updated_at: new Date().toISOString() };
+    const payload = { name, data: collectState(), updated_at: new Date().toISOString(), user_email: currentUser || 'anonymous' };
     let result;
     if (currentSaveId) {
       result = await sbFetch('calculator_saves?id=eq.' + currentSaveId, 'PATCH', payload);
@@ -1986,6 +2065,80 @@ function recalcAll() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(collectState())); } catch(e) {}
 }
 
+// ── Owner admin functions ──
+function isOwner() {
+  return currentUser && OWNER_EMAILS.map(e=>e.toLowerCase()).includes(currentUser.toLowerCase());
+}
+
+async function openOwnerAdmin() {
+  if (!isOwner()) return;
+  isAdminMode = true;
+  document.getElementById('admin-panel-bar').classList.add('visible');
+
+  setIndicator('Loading all users...', '#888');
+  try {
+    // Fetch all distinct user emails from Supabase
+    const data = await sbFetch('calculator_saves?select=user_email&order=user_email.asc');
+    const emails = [...new Set((data||[]).map(r=>r.user_email).filter(Boolean))];
+    allUsersCache = emails;
+
+    const pills = document.getElementById('user-pills');
+    pills.innerHTML = emails.map(email => `
+      <button class="user-pill ${email===adminViewingUser?'viewing':''}"
+        onclick="adminViewUser('${email}')"
+        title="View ${email}'s saves">
+        ${email}
+      </button>`).join('');
+
+    if (emails.length === 0) {
+      pills.innerHTML = '<span style="font-size:12px;color:#666;font-family:var(--mono);">No other users found</span>';
+    }
+    setIndicator(`${emails.length} user(s) found`, '#888', 3000);
+  } catch(e) {
+    setIndicator('Failed to load users', '#f08080', 3000);
+  }
+}
+
+async function adminViewUser(email) {
+  if (!isOwner()) return;
+  adminViewingUser = email;
+
+  // Update pill styles
+  document.querySelectorAll('.user-pill').forEach(p => {
+    p.classList.toggle('viewing', p.textContent.trim() === email);
+  });
+
+  // Load this user's saves in the dropdown
+  try {
+    setIndicator('Loading saves for ' + email + '...', '#888');
+    const data = await sbFetch('calculator_saves?select=id,name,updated_at&user_email=eq.' + encodeURIComponent(email) + '&order=updated_at.desc');
+    allSaves = data || [];
+    renderSavesDropdown();
+
+    // Show read-only indicator
+    document.getElementById('admin-viewing-label').textContent = '👁 Viewing: ' + email;
+
+    if (allSaves.length > 0) {
+      await loadSave(allSaves[0].id, true); // true = read-only
+    } else {
+      setIndicator('No saves for ' + email, '#888', 3000);
+    }
+  } catch(e) {
+    setIndicator('Failed to load user saves', '#f08080', 3000);
+  }
+}
+
+function exitAdminView() {
+  isAdminMode = false;
+  adminViewingUser = null;
+  document.getElementById('admin-panel-bar').classList.remove('visible');
+  // Restore own saves
+  currentSaveId = null;
+  currentSaveName = 'Unsaved';
+  loadAllSaves();
+  setIndicator('Returned to your account', '#5de0a0', 3000);
+}
+
 // ── Navigation ──
 function showSheet(name,tab){
   document.querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
@@ -1998,13 +2151,14 @@ function showSheet(name,tab){
 renderAll();
 recalcAll();
 
-// Check for share token in URL
+// Check for share token first
 const urlParams = new URLSearchParams(window.location.search);
 const shareToken = urlParams.get('share');
 if (shareToken) {
   loadSharedView(shareToken);
 } else {
-  loadAllSaves();
+  // Get user identity then load their saves
+  getCurrentUser().then(() => loadAllSaves());
 }
 
 // Close dropdown on outside click
