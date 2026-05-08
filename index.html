@@ -1873,14 +1873,16 @@ function applyState(state) {
 // ── Load all saves from Supabase — filtered by current user ──
 async function loadAllSaves() {
   try {
-    let data;
-    if (currentUser && currentUser !== 'anonymous') {
-      // Fetch saves matching this user OR saves with no user_email (legacy saves)
-      data = await sbFetch('calculator_saves?select=id,name,updated_at,share_token,user_email&order=updated_at.desc&or=(user_email.eq.' + encodeURIComponent(currentUser) + ',user_email.is.null)');
-    } else {
-      data = await sbFetch('calculator_saves?select=id,name,updated_at,share_token&order=updated_at.desc');
-    }
-    allSaves = data || [];
+    // Fetch all saves, filter client-side to handle null user_email legacy saves
+    const data = await sbFetch('calculator_saves?select=id,name,updated_at,share_token,user_email&order=updated_at.desc');
+    const all = data || [];
+    // Include saves belonging to this user OR legacy saves with no user_email
+    allSaves = all.filter(s =>
+      !s.user_email ||
+      s.user_email === '' ||
+      (currentUser && s.user_email.toLowerCase() === currentUser.toLowerCase())
+    );
+    console.log('Supabase: fetched', all.length, 'total saves,', allSaves.length, 'for user', currentUser);
     renderSavesDropdown();
     if (allSaves.length > 0 && !currentSaveId) {
       await loadSave(allSaves[0].id);
@@ -1890,7 +1892,8 @@ async function loadAllSaves() {
       setIndicator('Welcome — click Save to create your first save', '#888', 5000);
     }
   } catch(e) {
-    console.warn('Supabase unavailable, falling back to localStorage:', e);
+    console.error('loadAllSaves failed:', e);
+    setIndicator('Could not connect to database — working offline', '#ffd060', 5000);
     loadFromLocalStorage();
     renderAll();
     recalcAll();
@@ -1901,21 +1904,27 @@ async function loadAllSaves() {
 async function loadSave(id, readOnly=false) {
   try {
     setIndicator('Loading...', '#888');
+    console.log('loadSave: fetching id', id);
     const data = await sbFetch('calculator_saves?id=eq.' + id + '&select=*');
-    if (!data || data.length === 0) return;
+    console.log('loadSave: response', data);
+    if (!data || data.length === 0) {
+      console.warn('loadSave: empty response for id', id);
+      return;
+    }
     const save = data[0];
-    currentSaveId = readOnly ? null : save.id; // don't allow overwrite in admin view
+    console.log('loadSave: save name =', save.name, '| data keys =', Object.keys(save.data || {}));
+    currentSaveId = readOnly ? null : save.id;
     currentSaveName = save.name + (readOnly ? ' (read-only)' : '');
     applyState(save.data);
     if (!readOnly) localStorage.setItem(STORAGE_KEY + '_lastId', id);
     updateSaveLabel();
-    // Disable save buttons in admin view
     const btnSave = document.getElementById('btn-save-main');
     const btnAs = document.getElementById('btn-save-as');
     if (btnSave) btnSave.disabled = readOnly;
     if (btnAs) btnAs.disabled = readOnly;
     setIndicator((readOnly ? '👁 Viewing: ' : 'Loaded: ') + save.name, readOnly ? '#ffd060' : '#888', 3000);
   } catch(e) {
+    console.error('loadSave error:', e);
     setIndicator('Load failed', '#f08080', 3000);
   }
 }
