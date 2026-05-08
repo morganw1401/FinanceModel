@@ -1848,34 +1848,43 @@ function applyState(state) {
   if (state.monthData)   monthData   = state.monthData;
   if (state.ir35Scores)  ir35Scores  = state.ir35Scores;
   if (state.tax)         Object.assign(TAX, state.tax);
-  if (state.inputs) {
-    setTimeout(() => {
+
+  // Always re-render — inputs restoration happens in setTimeout to ensure DOM is ready
+  setTimeout(() => {
+    // Restore direct inputs if present
+    if (state.inputs) {
+      const ids = {salary:'co-salary',pension:'co-pension',divs:'co-divs',revRate:'rev-rate',taxcode:'p-taxcode',yearend:'ins-yearend'};
       ['salary','pension','divs','revRate','taxcode','yearend'].forEach(k => {
-        const ids = {salary:'co-salary',pension:'co-pension',divs:'co-divs',revRate:'rev-rate',taxcode:'p-taxcode',yearend:'ins-yearend'};
         const el = document.getElementById(ids[k]);
-        if (el && state.inputs[k]) el.value = state.inputs[k];
+        if (el && state.inputs[k] !== undefined && state.inputs[k] !== null) {
+          el.value = state.inputs[k];
+        }
       });
-      if (state.tax?.taxyear) {
-        const el = document.getElementById('yr-badge');
-        if (el) el.textContent = state.tax.taxyear.replace('/',' / ');
-      }
-      renderAll();
-      recalcAll();
-    }, 50);
-  }
+    }
+    if (state.tax?.taxyear) {
+      const el = document.getElementById('yr-badge');
+      if (el) el.textContent = state.tax.taxyear.replace('/',' / ');
+    }
+    renderAll();
+    recalcAll();
+  }, 50);
 }
 
 // ── Load all saves from Supabase — filtered by current user ──
 async function loadAllSaves() {
   try {
-    const userFilter = currentUser ? `&user_email=eq.${encodeURIComponent(currentUser)}` : '';
-    const data = await sbFetch('calculator_saves?select=id,name,updated_at,share_token&order=updated_at.desc' + userFilter);
+    let data;
+    if (currentUser && currentUser !== 'anonymous') {
+      // Fetch saves matching this user OR saves with no user_email (legacy saves)
+      data = await sbFetch('calculator_saves?select=id,name,updated_at,share_token,user_email&order=updated_at.desc&or=(user_email.eq.' + encodeURIComponent(currentUser) + ',user_email.is.null)');
+    } else {
+      data = await sbFetch('calculator_saves?select=id,name,updated_at,share_token&order=updated_at.desc');
+    }
     allSaves = data || [];
     renderSavesDropdown();
     if (allSaves.length > 0 && !currentSaveId) {
       await loadSave(allSaves[0].id);
     } else if (allSaves.length === 0) {
-      // Brand new user — start fresh, don't load localStorage from another user
       renderAll();
       recalcAll();
       setIndicator('Welcome — click Save to create your first save', '#888', 5000);
