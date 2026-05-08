@@ -745,29 +745,6 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
     </div>
   </div>
 
-  <!-- Scenarios — below monthly -->
-  <div class="sec">
-    <div class="sec-hdr">
-      <div class="sec-lbl">Day Rate Scenarios</div>
-      <button class="btn btn-g btn-sm" onclick="addScenario()">+ Add Scenario</button>
-    </div>
-    <div class="card">
-      <table class="dtbl" id="scen-tbl">
-        <thead><tr>
-          <th style="width:22%">Scenario</th>
-          <th class="r" style="width:12%">Rate change (%)</th>
-          <th class="r" style="width:14%">Effective rate</th>
-          <th class="r" style="width:14%">Days/Yr</th>
-          <th class="r" style="width:14%">Revenue</th>
-          <th class="r" style="width:14%">vs Current</th>
-          <th class="r" style="width:10%">Net Take-home</th>
-          <th style="width:30px"></th>
-        </tr></thead>
-        <tbody id="scen-tbody"></tbody>
-      </table>
-    </div>
-    <div class="insight bl" style="margin-top:8px;"><strong>Scenarios apply a % change to the current day rate</strong> above. Enter a positive % for an increase, negative for a decrease (e.g. −10 for a 10% rate cut). The effective rate and revenue update instantly. Net take-home reflects current dividend and tax settings.</div>
-  </div>
 </div>
 
 <!-- ══════════════════════════════════════════════════════ -->
@@ -831,6 +808,46 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
         <div class="insight" id="ins-sal-insight" style="margin-top:8px;"></div>
       </div>
     </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-hdr">
+      <div class="sec-lbl">Rate Scenarios</div>
+      <button class="btn btn-g btn-sm" onclick="addScenario()">+ Add Scenario</button>
+    </div>
+    <div class="card">
+      <div style="padding:14px 16px;border-bottom:1px solid var(--border);">
+        <label style="font-size:10px;font-family:var(--mono);color:var(--text3);">ALLOCATE EXTRA REVENUE — % TO PENSION (remainder goes to dividends)</label>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:6px;">
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text3);white-space:nowrap;">All to divs</span>
+          <input type="range" id="scen-pen-pct" min="0" max="100" step="5" value="50"
+            oninput="document.getElementById('scen-pen-pct-input').value=this.value;renderScenarios()"
+            style="flex:1;accent-color:var(--green);">
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text3);white-space:nowrap;">All to pension</span>
+          <input type="number" id="scen-pen-pct-input" value="50" min="0" max="100" step="5"
+            oninput="document.getElementById('scen-pen-pct').value=this.value;renderScenarios()"
+            style="font-family:var(--mono);font-size:13px;font-weight:600;width:65px;border:1px solid var(--border);border-radius:3px;padding:5px 8px;background:var(--surface);color:var(--blue);outline:none;text-align:right;">
+          <span style="font-family:var(--mono);font-size:12px;color:var(--text2);white-space:nowrap;">% pension</span>
+        </div>
+      </div>
+      <table class="dtbl" id="scen-tbl">
+        <thead><tr>
+          <th style="width:16%">Scenario</th>
+          <th class="r" style="width:10%">Rate chg</th>
+          <th class="r" style="width:11%">Eff. rate</th>
+          <th class="r" style="width:7%">Days</th>
+          <th class="r" style="width:11%">Revenue</th>
+          <th class="r" style="width:9%">vs Current</th>
+          <th class="r" style="width:10%">+Pension</th>
+          <th class="r" style="width:10%">+Dividends</th>
+          <th class="r" style="width:11%">Net/mo</th>
+          <th class="r" style="width:10%">vs Base</th>
+          <th style="width:30px"></th>
+        </tr></thead>
+        <tbody id="scen-tbody"></tbody>
+      </table>
+    </div>
+    <div class="insight bl" style="margin-top:8px;"><strong>Scenarios apply a % change to your current day rate</strong> (set on the Revenue tab). Days defaults to current month grid total if left blank. Use the slider to split any extra revenue between pension and dividends — the net take-home updates to reflect the full personal tax impact using your current tax code.</div>
   </div>
 
   <div class="two-col">
@@ -1535,35 +1552,63 @@ function renderMonths(){
 function renderScenarios(){
   const defRate=parseFloat(document.getElementById('rev-rate')?.value)||545;
   const totalDays=monthData.reduce((s,m)=>s+m.days,0);
-  const currentRev=totalDays*defRate;
+  const currentRev=monthData.reduce((s,m)=>s+m.days*(m.rate||defRate),0);
+
   const salary=parseFloat(document.getElementById('co-salary')?.value)||0;
-  const divs=parseFloat(document.getElementById('co-divs')?.value)||0;
-  const divTax=calcDivTax(divs);
-  const sl=calcSL(salary+divs);
-  const allBikTax=(calcBIKValue()+calcExpBik().annValue)*0.40;
-  const baseNetTakeHome=salary+divs-divTax-sl-allBikTax;
+  const baseDivs=parseFloat(document.getElementById('co-divs')?.value)||0;
+  const basePension=parseFloat(document.getElementById('co-pension')?.value)||0;
+  const taxCodeStr=document.getElementById('p-taxcode')?.value||'1257L';
+  const tc=parseTaxCode(taxCodeStr);
+  const payeOnSalary=calcPayeOnSalary(salary,tc.allowance);
+  const netSalaryAnn=salary-payeOnSalary;
+  const allBikPersonalTax=(calcBIKValue()+calcExpBik().annValue)*(TAX.hrate/100);
+
+  // Baseline personal net take-home (current settings)
+  const baseDivTax=calcDivTax(baseDivs);
+  const baseSL=calcSL(salary+baseDivs);
+  const baseNetTakeHome=netSalaryAnn+baseDivs-baseDivTax-baseSL-allBikPersonalTax;
+
+  // Allocation slider: % of extra revenue going to pension
+  const penPct=Math.min(100,Math.max(0,parseFloat(document.getElementById('scen-pen-pct')?.value)||50));
+  const divPct=100-penPct;
 
   const tbody=document.getElementById('scen-tbody');
   if(!tbody)return;
   tbody.innerHTML=scenarios.map(s=>{
     const scenPct=s.pct||0;
     const effectiveRate=defRate*(1+scenPct/100);
-    const rev=effectiveRate*s.days;
-    const diff=rev-currentRev;
+    const scenDays=s.days>0?s.days:totalDays;
+    const scenRev=effectiveRate*scenDays;
+    const extra=scenRev-currentRev;
     const isCurrent=scenPct===0;
+
+    const extraToAlloc=Math.max(0,extra);
+    const extraPension=extraToAlloc*penPct/100;
+    const extraDivs=extraToAlloc*divPct/100;
+    const scenDivsAnn=baseDivs+extraDivs;
+
+    const scenDivTax=calcDivTax(scenDivsAnn);
+    const scenSL=calcSL(salary+scenDivsAnn);
+    const scenNetTakeHome=netSalaryAnn+scenDivsAnn-scenDivTax-scenSL-allBikPersonalTax;
+    const netDiff=scenNetTakeHome-baseNetTakeHome;
+
+    const diff=scenRev-currentRev;
     return`<tr class="${isCurrent?'tr-section':''}">
       <td><div class="cell"><input type="text" value="${s.label}" onchange="updScen('${s.id}','label',this.value)"></div></td>
       <td><div class="cell r">
-        <input type="number" value="${scenPct}" step="0.5"
-          style="width:55px;text-align:right;"
+        <input type="number" value="${scenPct}" step="0.5" style="width:50px;text-align:right;"
           oninput="updScen('${s.id}','pct',parseFloat(this.value)||0)">
         <span style="font-size:11px;color:var(--text3);margin-left:2px;font-family:var(--mono)">%</span>
       </div></td>
       <td><div class="cell r"><span class="cv mono">${fmt(effectiveRate)}/day</span></div></td>
-      <td><div class="cell r"><input type="number" value="${s.days}" oninput="updScen('${s.id}','days',parseInt(this.value)||0)" style="width:55px;text-align:right;"></div></td>
-      <td><div class="cell r"><span class="cv mono">${fmtN(rev)}</span></div></td>
+      <td><div class="cell r"><input type="number" value="${s.days||''}" placeholder="${totalDays}"
+        oninput="updScen('${s.id}','days',parseInt(this.value)||0)" style="width:42px;text-align:right;"></div></td>
+      <td><div class="cell r"><span class="cv mono">${fmtN(scenRev)}</span></div></td>
       <td><div class="cell r"><span class="cv mono ${diff>0?'g':diff<0?'r':''}">${diff===0?'—':fmtD(diff)}</span></div></td>
-      <td><div class="cell r"><span class="cv mono">${fmtN(baseNetTakeHome/12)}/mo</span></div></td>
+      <td><div class="cell r"><span class="cv mono ${extraPension>0?'g':''}">${extraPension>0?'+'+fmtN(extraPension):'—'}</span></div></td>
+      <td><div class="cell r"><span class="cv mono ${extraDivs>0?'b':''}">${extraDivs>0?'+'+fmtN(extraDivs):'—'}</span></div></td>
+      <td><div class="cell r"><span class="cv mono b">${fmtN(scenNetTakeHome/12)}/mo</span></div></td>
+      <td><div class="cell r"><span class="cv mono ${netDiff>0?'g':netDiff<0?'r':''}">${netDiff===0?'—':fmtD(netDiff/12)+'/mo'}</span></div></td>
       <td><div class="cell c"><button class="del-btn" onclick="delScen('${s.id}')">×</button></div></td>
     </tr>`;
   }).join('');
@@ -1588,6 +1633,8 @@ function recalcInsights(){
   const penSlider=document.getElementById('ins-pen-slider');
   
   updatePensionModel();
+  updateSalaryModel();
+  renderScenarios();
 
   // Dividend bands
   const taxable=Math.max(0,divs-TAX.divallow);
@@ -1677,18 +1724,22 @@ function updateSalaryModel(){
   document.getElementById('ins-sal-val').textContent='';
   const erNI=calcErNI(sal);
   const empNI=sal<=TAX.nipt?0:sal<=TAX.niuel?(sal-TAX.nipt)*TAX.nirate/100:(TAX.niuel-TAX.nipt)*TAX.nirate/100+(sal-TAX.niuel)*TAX.niupper/100;
-  const payeIT=sal<=TAX.pa?0:(sal-TAX.pa)*TAX.brate/100;
+  // Inherit tax code from Personal Finances page
+  const taxCodeStr=document.getElementById('p-taxcode')?.value||'1257L';
+  const tc=parseTaxCode(taxCodeStr);
+  const payeIT=calcPayeOnSalary(sal,tc.allowance);
+  const codeNote=tc.allowance!==TAX.pa?` (code ${taxCodeStr} — allowance £${Math.max(0,tc.allowance).toLocaleString()})`:' (standard 1257L)';
   document.getElementById('ins-sal-kpis').innerHTML=`
     <div class="kpi kblue"><div class="klbl">Modelled Salary</div><div class="kval b">${fmtN(sal)}/yr</div><div class="ksub">${fmtN(sal/12)}/mo</div></div>
     <div class="kpi"><div class="klbl">Employee NI</div><div class="kval ${empNI>0?'r':''}">${fmtN(empNI)}/yr</div><div class="ksub">${empNI>0?'Payable by you':sal===TAX.nipt?'Zero — at threshold ✓':'Below threshold'}</div></div>
     <div class="kpi"><div class="klbl">Employer NIC</div><div class="kval ${erNI>0?'r':''}">${fmtN(erNI)}/yr</div><div class="ksub">Company cost — CT deductible</div></div>
-    <div class="kpi"><div class="klbl">PAYE Income Tax</div><div class="kval ${payeIT>0?'r':''}">${fmtN(payeIT)}/yr</div><div class="ksub">${payeIT===0?'Zero — within allowance ✓':'Taxable above allowance'}</div></div>`;
+    <div class="kpi"><div class="klbl">PAYE Income Tax</div><div class="kval ${payeIT>0?'r':''}">${fmtN(payeIT)}/yr</div><div class="ksub">${payeIT===0?'Zero ✓':taxCodeStr+' code applied'}</div></div>`;
   const optimal=sal===TAX.pa;
   document.getElementById('ins-sal-insight').innerHTML=optimal
-    ?`<strong>Optimal.</strong> Salary at £${TAX.pa.toLocaleString()} equals the personal allowance exactly — zero income tax, zero employee NI, but you earn NI credits towards your State Pension. Employer NIC of ${fmtN(erNI)} is CT deductible.`
+    ?`<strong>Optimal.</strong> Salary at £${TAX.pa.toLocaleString()} equals the personal allowance exactly — zero employee NI and NI credits towards State Pension. Employer NIC of ${fmtN(erNI)} is CT deductible. PAYE uses tax code ${taxCodeStr}${tc.allowance!==TAX.pa?' — your reduced allowance means £'+fmtN(payeIT)+' PAYE on salary due to BIK coded out':''}.`
     :sal<TAX.pa
-    ?`<strong>Below optimal.</strong> Setting salary below £${TAX.pa.toLocaleString()} means missing free income within the personal allowance. Consider increasing to £${TAX.pa.toLocaleString()} to maximise tax-free extraction.`
-    :`<strong>Above optimal.</strong> Above £${TAX.pa.toLocaleString()} salary you begin paying both income tax and employee NI. Usually better to take surplus as dividends or pension contributions.`;
+    ?`<strong>Below optimal.</strong> Setting salary below £${TAX.pa.toLocaleString()} means missing free income within the personal allowance. Consider increasing to £${TAX.pa.toLocaleString()}.${codeNote}`
+    :`<strong>Above optimal.</strong> Above £${TAX.pa.toLocaleString()} you begin paying income tax and employee NI. Surplus is usually better directed as dividends or pension.${codeNote}`;
 }
 
 function renderIR35(){
