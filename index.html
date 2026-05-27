@@ -1842,7 +1842,7 @@ let currentSaveId = null;
 let currentSaveName = 'Unsaved';
 let allSaves = [];
 let isAdminMode = false;
-let adminViewingUser = null;
+let adminViewingUsers = []; // array — supports multi-user selection
 let allUsersCache = [];
 
 async function sbFetch(path, method='GET', body=null) {
@@ -2080,15 +2080,19 @@ async function loadSharedView(token) {
 function renderSavesDropdown() {
   const dd = document.getElementById('saves-dropdown');
   if (!dd) return;
+  const multiUser = isAdminMode && adminViewingUsers.length > 1;
   dd.innerHTML = allSaves.length === 0
     ? '<div style="padding:10px 14px;font-size:12px;color:var(--text3);">No saves yet — click Save to create one</div>'
     : allSaves.map(s => `
-        <div onclick="loadSave('${s.id}');closeSavesDropdown()"
-          style="padding:9px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);font-size:13px;${s.id===currentSaveId?'background:var(--blue-bg);':''}"
+        <div onclick="loadSave('${s.id}',${isAdminMode});closeSavesDropdown()"
+          style="padding:9px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;border-bottom:1px solid var(--border);font-size:13px;${s.id===currentSaveId?'background:var(--blue-bg);':''}"
           onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='${s.id===currentSaveId?'var(--blue-bg)':''}'"
         >
-          <span style="font-weight:${s.id===currentSaveId?'600':'400'}">${s.name}${s.id===currentSaveId?' ✓':''}</span>
-          <span style="font-size:11px;color:var(--text3);font-family:var(--mono)">${new Date(s.updated_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</span>
+          <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
+            <span style="font-weight:${s.id===currentSaveId?'600':'400'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.name}${s.id===currentSaveId?' ✓':''}</span>
+            ${multiUser && s.user_email ? `<span style="font-size:10px;color:var(--amber);font-family:var(--mono);letter-spacing:.03em;">${s.user_email}</span>` : ''}
+          </div>
+          <span style="font-size:11px;color:var(--text3);font-family:var(--mono);white-space:nowrap;flex-shrink:0;">${new Date(s.updated_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</span>
         </div>`).join('');
 }
 
@@ -2160,9 +2164,9 @@ async function openOwnerAdmin() {
 
     const pills = document.getElementById('user-pills');
     pills.innerHTML = emails.map(email => `
-      <button class="user-pill ${email===adminViewingUser?'viewing':''}"
+      <button class="user-pill ${adminViewingUsers.includes(email)?'viewing':''}"
         onclick="adminViewUser('${email}')"
-        title="View ${email}'s saves">
+        title="Click to add/remove ${email} from view">
         ${email}
       </button>`).join('');
 
@@ -2177,27 +2181,49 @@ async function openOwnerAdmin() {
 
 async function adminViewUser(email) {
   if (!isOwner()) return;
-  adminViewingUser = email;
 
-  // Update pill styles
+  // Toggle this user in/out of the selection
+  const idx = adminViewingUsers.indexOf(email);
+  if (idx > -1) {
+    adminViewingUsers.splice(idx, 1);
+  } else {
+    adminViewingUsers.push(email);
+  }
+
+  // Update pill styles — all selected users highlighted
   document.querySelectorAll('.user-pill').forEach(p => {
-    p.classList.toggle('viewing', p.textContent.trim() === email);
+    p.classList.toggle('viewing', adminViewingUsers.includes(p.textContent.trim()));
   });
 
-  // Load this user's saves in the dropdown
+  if (adminViewingUsers.length === 0) {
+    allSaves = [];
+    renderSavesDropdown();
+    document.getElementById('admin-viewing-label').textContent = '';
+    setIndicator('No users selected', '#888', 2000);
+    return;
+  }
+
   try {
-    setIndicator('Loading saves for ' + email + '...', '#888');
-    const data = await sbFetch('calculator_saves?select=id,name,updated_at&user_email=eq.' + encodeURIComponent(email) + '&order=updated_at.desc');
-    allSaves = data || [];
+    setIndicator('Loading saves...', '#888');
+    // Fetch saves for all selected users in parallel
+    const results = await Promise.all(
+      adminViewingUsers.map(e =>
+        sbFetch('calculator_saves?select=id,name,updated_at,user_email&user_email=eq.' + encodeURIComponent(e) + '&order=updated_at.desc')
+      )
+    );
+    // Merge and sort by most recently updated
+    allSaves = results.flat().filter(Boolean).sort((a,b) => new Date(b.updated_at) - new Date(a.updated_at));
     renderSavesDropdown();
 
-    // Show read-only indicator
-    document.getElementById('admin-viewing-label').textContent = '👁 Viewing: ' + email;
+    const label = adminViewingUsers.length === 1
+      ? '👁 ' + adminViewingUsers[0]
+      : `👁 ${adminViewingUsers.length} users`;
+    document.getElementById('admin-viewing-label').textContent = label;
 
     if (allSaves.length > 0) {
-      await loadSave(allSaves[0].id, true); // true = read-only
+      await loadSave(allSaves[0].id, true);
     } else {
-      setIndicator('No saves for ' + email, '#888', 3000);
+      setIndicator('No saves found for selected user(s)', '#888', 3000);
     }
   } catch(e) {
     setIndicator('Failed to load user saves', '#f08080', 3000);
@@ -2206,7 +2232,7 @@ async function adminViewUser(email) {
 
 function exitAdminView() {
   isAdminMode = false;
-  adminViewingUser = null;
+  adminViewingUsers = [];
   document.getElementById('admin-panel-bar').classList.remove('visible');
   // Restore own saves
   currentSaveId = null;
