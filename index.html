@@ -1478,10 +1478,26 @@ function recalcCompany(){
   const payeEquivWithPension=(lo+hi)/2;
 
   document.getElementById('co-paye-kpis').innerHTML=`
-    <div class="kpi kblue"><div class="klbl">Net Take-home (Ltd)</div><div class="kval b">${fmtN(netTakeHome/12)}/mo</div><div class="ksub">${fmtN(netTakeHome)}/yr · code ${_tcStr}, after all personal tax</div></div>
-    <div class="kpi kpurple"><div class="klbl">PAYE Equiv. (no pension)</div><div class="kval p">${fmtN(payeEquivNoPension)}/yr</div><div class="ksub">Gross salary giving same net take-home</div></div>
-    <div class="kpi kpurple"><div class="klbl">PAYE Equiv. (with pension)</div><div class="kval p">${fmtN(payeEquivWithPension)}/yr</div><div class="ksub">Total package incl. ${fmtN(pension)} pension</div></div>
-    <div class="kpi kgreen"><div class="klbl">Total Package Value</div><div class="kval g">${fmtN((netTakeHome+pension)/12)}/mo</div><div class="ksub">Net take-home + pension contribution</div></div>`;
+    <div class="kpi kblue">
+      <div class="klbl">Ltd Net Take-home</div>
+      <div class="kval b">${fmtN(netTakeHome/12)}/mo</div>
+      <div class="ksub">${fmtN(netTakeHome)}/yr after all personal tax · code ${_tcStr}</div>
+    </div>
+    <div class="kpi kpurple">
+      <div class="klbl">Min salary — employer pension</div>
+      <div class="kval p">${fmtN(payeEquivNoPension)}/yr</div>
+      <div class="ksub">If new employer also contributes ${fmtN(pension)}/yr pension on top · total package ${fmtN(payeEquivNoPension+pension)}</div>
+    </div>
+    <div class="kpi kpurple">
+      <div class="klbl">Min salary — no employer pension</div>
+      <div class="kval p">${fmtN(payeEquivWithPension)}/yr</div>
+      <div class="ksub">Sacrifice ${fmtN(pension)}/yr to pension from this gross · same net take-home</div>
+    </div>
+    <div class="kpi kgreen">
+      <div class="klbl">Ltd total package value</div>
+      <div class="kval g">${fmtN((netTakeHome+pension)/12)}/mo</div>
+      <div class="ksub">${fmtN(netTakeHome+pension)}/yr · take-home + pension combined</div>
+    </div>`;
 
   document.getElementById('co-summary-rows').innerHTML=`
     <div class="sbar-row"><span class="sl">Revenue</span><span class="sv g">${fmtN(rev)}</span></div>
