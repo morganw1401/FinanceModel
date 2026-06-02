@@ -1442,29 +1442,46 @@ function recalcCompany(){
       <td><div class="cell r"><span class="cv mono ${r.cls}">${fmt(r.ann)}</span></div></td>
     </tr>`).join('');
 
-  // PAYE equivalence — include all BIK (car + expenses) in personal tax
+  // PAYE equivalence — net take-home uses same methodology as Personal tab
   const taxOnDivs=calcDivTax(divs);
   const sl=calcSL(salary+divs);
-  const allBikPersonalTax=(calcBIKValue()+expBik.annValue)*(TAX.hrate/100);
-  const netTakeHome=salary+divs-taxOnDivs-sl-allBikPersonalTax;
+
+  // Read tax code from Personal tab so both tabs are consistent
+  const _tcStr=document.getElementById('p-taxcode')?.value||'1257L';
+  const _tc=parseTaxCode(_tcStr);
+  const _payeOnSalary=calcPayeOnSalary(salary,_tc.allowance);
+
+  // Car BIK: portion coded out is already collected via PAYE (don't double-count)
+  const _carBikValue=calcBIKValue();
+  const _paReduction=Math.max(0,TAX.pa-Math.max(0,_tc.allowance));
+  const _carBikCoveredByCode=Math.min(_paReduction,_carBikValue);
+  const _carBikViaSATax=Math.max(0,_carBikValue-_carBikCoveredByCode)*(TAX.hrate/100);
+  // Expense BIK always via SA at higher rate
+  const _expBikSATax=expBik.annValue*(TAX.hrate/100);
+
+  // Net take-home: net salary (after PAYE) + dividends - SA taxes
+  const netTakeHome=(salary-_payeOnSalary)+divs-taxOnDivs-sl-_carBikViaSATax-_expBikSATax;
+
+  // PAYE equivalence binary search — what gross PAYE salary gives same net take-home?
+  // Uses standard 1257L allowance for the hypothetical PAYE employee
   function payeNetFromGross(g){
-    const it=g<=TAX.pa?0:g<=TAX.brt?(g-TAX.pa)*TAX.brate/100:(TAX.brt-TAX.pa)*TAX.brate/100+(g-TAX.brt)*TAX.hrate/100;
+    const it=g<=TAX.pa?0:g<=TAX.brt?(g-TAX.pa)*TAX.brate/100:(TAX.brt-TAX.pa)*TAX.brate/100+(g-TAX.brt)*TAX.hrate/100+(g>TAX.hrt?(g-TAX.hrt)*(TAX.arate-TAX.hrate)/100:0);
     const ni=g<=TAX.nipt?0:g<=TAX.niuel?(g-TAX.nipt)*TAX.nirate/100:(TAX.niuel-TAX.nipt)*TAX.nirate/100+(g-TAX.niuel)*TAX.niupper/100;
     const sl2=Math.max(0,g-TAX.slthresh)*TAX.slrate/100;
     return g-it-ni-sl2;
   }
-  let lo=40000,hi=200000;
+  let lo=40000,hi=250000;
   for(let i=0;i<80;i++){const m=(lo+hi)/2;payeNetFromGross(m)<netTakeHome?lo=m:hi=m;}
   const payeEquivNoPension=(lo+hi)/2;
-  lo=40000;hi=200000;
+  lo=40000;hi=250000;
   for(let i=0;i<80;i++){const m=(lo+hi)/2;payeNetFromGross(m-pension)<netTakeHome?lo=m:hi=m;}
   const payeEquivWithPension=(lo+hi)/2;
 
   document.getElementById('co-paye-kpis').innerHTML=`
-    <div class="kpi kblue"><div class="klbl">Net Take-home (Ltd)</div><div class="kval b">${fmtN(netTakeHome/12)}/mo</div><div class="ksub">${fmtN(netTakeHome)}/yr</div></div>
-    <div class="kpi kpurple"><div class="klbl">PAYE Equiv. (no pension)</div><div class="kval p">${fmtN(payeEquivNoPension)}/yr</div><div class="ksub">Gross salary for same net</div></div>
-    <div class="kpi kpurple"><div class="klbl">PAYE Equiv. (with pension)</div><div class="kval p">${fmtN(payeEquivWithPension)}/yr</div><div class="ksub">Gross salary + matching pension</div></div>
-    <div class="kpi kgreen"><div class="klbl">Total Package Value</div><div class="kval g">${fmtN((netTakeHome+pension)/12)}/mo</div><div class="ksub">Net income + pension/mo</div></div>`;
+    <div class="kpi kblue"><div class="klbl">Net Take-home (Ltd)</div><div class="kval b">${fmtN(netTakeHome/12)}/mo</div><div class="ksub">${fmtN(netTakeHome)}/yr · code ${_tcStr}, after all personal tax</div></div>
+    <div class="kpi kpurple"><div class="klbl">PAYE Equiv. (no pension)</div><div class="kval p">${fmtN(payeEquivNoPension)}/yr</div><div class="ksub">Gross salary giving same net take-home</div></div>
+    <div class="kpi kpurple"><div class="klbl">PAYE Equiv. (with pension)</div><div class="kval p">${fmtN(payeEquivWithPension)}/yr</div><div class="ksub">Total package incl. ${fmtN(pension)} pension</div></div>
+    <div class="kpi kgreen"><div class="klbl">Total Package Value</div><div class="kval g">${fmtN((netTakeHome+pension)/12)}/mo</div><div class="ksub">Net take-home + pension contribution</div></div>`;
 
   document.getElementById('co-summary-rows').innerHTML=`
     <div class="sbar-row"><span class="sl">Revenue</span><span class="sv g">${fmtN(rev)}</span></div>
