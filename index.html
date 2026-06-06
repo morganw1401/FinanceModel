@@ -348,7 +348,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 <!-- Sheet tabs -->
 <div class="sheet-bar">
   <button class="stab active" onclick="showSheet('personal',this)">Personal Finances</button>
-  <button class="stab" onclick="showSheet('company',this)">MDW Consulting LTD</button>
+  <button class="stab" onclick="showSheet('company',this)">Company Finances</button>
   <button class="stab" onclick="showSheet('revenue',this)">Revenue Projections</button>
   <button class="stab" onclick="showSheet('insights',this)">Planning Insights</button>
 </div>
@@ -723,7 +723,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 
   <!-- Quarterly summary -->
   <div class="sec">
-    <div class="sec-hdr"><div class="sec-lbl">Quarterly Summary</div></div>
+    <div class="sec-hdr"><div class="sec-lbl">Quarterly Summary — Day Rate</div></div>
     <div class="card">
       <table class="dtbl">
         <thead><tr>
@@ -742,6 +742,32 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
           <td><div class="cell r"><span class="cv mono">100%</span></div></td>
         </tr></tfoot>
       </table>
+    </div>
+  </div>
+
+  <!-- Other Revenue -->
+  <div class="sec">
+    <div class="sec-hdr">
+      <div class="sec-lbl">Other Revenue</div>
+      <button class="btn btn-g btn-sm" onclick="addRow('other-rev','otherrev')">+ Add</button>
+    </div>
+    <div class="card">
+      <table class="dtbl">
+        <thead><tr>
+          <th>Description</th>
+          <th class="r">Monthly (£)</th>
+          <th class="r">Annual (£)</th>
+          <th class="c"></th>
+        </tr></thead>
+        <tbody id="other-rev-tbody"></tbody>
+        <tfoot><tr class="tr-total">
+          <td><div class="cell"><span class="cv bold">Total Other Revenue</span></div></td>
+          <td></td>
+          <td><div class="cell r"><span class="cv mono g" id="other-rev-total">£0</span></div></td>
+          <td></td>
+        </tr></tfoot>
+      </table>
+      <div style="margin-top:6px;font-size:11px;color:var(--text3);font-family:var(--mono);">Other revenue (e.g. rental income, interest, ad-hoc work) is added to day rate revenue and flows into company P&amp;L.</div>
     </div>
   </div>
 
@@ -943,6 +969,7 @@ function freshState() {
     pVarRows: [],
     pSavingsRows: [],
     coExpRows: [],
+    otherRevRows: [],
     scenarios: [
       {id:uid(),label:'Current',pct:0,days:0},
       {id:uid(),label:'+5%',pct:5,days:0},
@@ -981,6 +1008,7 @@ const IR35_FACTORS = [
   {label:'Multiple clients',desc:'Do you work for multiple clients in the same period, or could you?',options:['Exclusive to one client only','Mainly one client','Multiple concurrent or recent clients']},
 ];
 let ir35Scores = IR35_FACTORS.map(()=>1);
+let otherRevRows = [];
 
 function uid(){return Math.random().toString(36).slice(2,8);}
 const fmt=n=>'£'+Math.abs(n).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -1100,6 +1128,12 @@ function renderRow(row,type){
     <td><div class="cell r"><span class="cv mono" id="savpct-${row.id}">—</span></div></td>
     <td><div class="cell c"><button class="del-btn" onclick="delRow('${row.id}','${type}')">×</button></div></td>`;
 
+  if(type==='otherrev') return `
+    <td><div class="cell"><input type="text" value="${row.desc}" placeholder="Description" onchange="setFieldNoRender('${row.id}','${type}','desc',this.value)"></div></td>
+    <td><div class="cell r"><input type="number" value="${mo}" step="0.01" ${numInput('mo')}></div></td>
+    <td><div class="cell r"><span class="cv mono g" id="ann-${row.id}">${fmt(mo*12)}</span></div></td>
+    <td><div class="cell c"><button class="del-btn" onclick="delRow('${row.id}','${type}')">×</button></div></td>`;
+
   if(type==='coexp') {
     const vatReclaim=row.vat?(row.mo*12/1)*(TAX.vatrate/100)*(row.halfVat?0.5:1):0;
     const bikAnn=(row.mo||0)*12;
@@ -1121,12 +1155,12 @@ function renderRow(row,type){
 // Savings rows are declared above in data state as blank arrays
 
 function getArr(type){
-  return type==='income'?pIncomeRows:type==='fixed'?pFixedRows:type==='variable'?pVarRows:type==='savings'?pSavingsRows:coExpRows;
+  return type==='income'?pIncomeRows:type==='fixed'?pFixedRows:type==='variable'?pVarRows:type==='savings'?pSavingsRows:type==='otherrev'?otherRevRows:coExpRows;
 }
 
 // Update just the annual display cell without full re-render
 function updateAnnual(id){
-  const allRows=[...pIncomeRows,...pFixedRows,...pVarRows,...pSavingsRows,...coExpRows];
+  const allRows=[...pIncomeRows,...pFixedRows,...pVarRows,...pSavingsRows,...coExpRows,...otherRevRows];
   const row=allRows.find(r=>r.id===id);
   if(!row)return;
   const el=document.getElementById('ann-'+id);
@@ -1196,6 +1230,7 @@ function renderAll(){
   render('p-var-tbody',pVarRows,'variable');
   render('p-sav-tbody',pSavingsRows,'savings');
   render('co-exp-tbody',coExpRows,'coexp');
+  render('other-rev-tbody',otherRevRows,'otherrev');
   renderMonths();
   renderScenarios();
   renderIR35();
@@ -1518,27 +1553,33 @@ function recalcCompany(){
 
 function recalcRevenue(){
   const defRate=parseFloat(document.getElementById('rev-rate')?.value)||545;
-  let totalDays=0,totalRev=0;
+  let totalDays=0,dayRev=0;
   monthData.forEach((m,i)=>{
     const rate=m.rate>0?m.rate:defRate;
     const rev=m.days*rate;
     totalDays+=m.days;
-    totalRev+=rev;
+    dayRev+=rev;
     const el=document.getElementById('mtotal-'+i);
     if(el)el.textContent='£'+Math.round(rev).toLocaleString('en-GB');
   });
+  const otherRev=otherRevRows.reduce((s,r)=>s+(r.mo||0)*12,0);
+  const totalRev=dayRev+otherRev;
+  // Update other rev total display
+  const orTotalEl=document.getElementById('other-rev-total');
+  if(orTotalEl)orTotalEl.textContent=fmtN(otherRev);
+
   document.getElementById('co-rev-disp').textContent=fmtN(totalRev);
   document.getElementById('co-rev-disp').dataset.raw=totalRev;
   document.getElementById('co-days-disp').textContent=totalDays;
-  document.getElementById('co-rate-disp').textContent=totalDays>0?fmt(totalRev/totalDays):'£0';
+  document.getElementById('co-rate-disp').textContent=totalDays>0?fmt(dayRev/totalDays):'£0';
   document.getElementById('rev-total-days').textContent=totalDays;
-  document.getElementById('rev-total-rev').textContent=fmtN(totalRev);
-  document.getElementById('rev-avg-rate').textContent=totalDays>0?fmt(totalRev/totalDays):'£0';
+  document.getElementById('rev-total-rev').textContent=fmtN(dayRev);
+  document.getElementById('rev-avg-rate').textContent=totalDays>0?fmt(dayRev/totalDays):'£0';
 
   document.getElementById('rev-kpis').innerHTML=`
-    <div class="kpi kblue"><div class="klbl">Annual Revenue</div><div class="kval b">${fmtN(totalRev)}</div><div class="ksub">${fmt(totalRev/12)}/mo avg</div></div>
+    <div class="kpi kblue"><div class="klbl">Total Revenue</div><div class="kval b">${fmtN(totalRev)}</div><div class="ksub">Day rate ${fmtN(dayRev)}${otherRev>0?' + other '+fmtN(otherRev):''}</div></div>
     <div class="kpi"><div class="klbl">Days Billed</div><div class="kval">${totalDays}</div><div class="ksub">of ${TAX.workdays} available</div></div>
-    <div class="kpi"><div class="klbl">Blended Day Rate</div><div class="kval">${totalDays>0?fmt(totalRev/totalDays):'£0'}</div><div class="ksub">across all months</div></div>
+    <div class="kpi"><div class="klbl">Blended Day Rate</div><div class="kval">${totalDays>0?fmt(dayRev/totalDays):'£0'}</div><div class="ksub">day rate revenue only</div></div>
     <div class="kpi kgreen"><div class="klbl">Utilisation</div><div class="kval g">${pct(totalDays/TAX.workdays*100)}</div><div class="ksub">${totalDays}/${TAX.workdays} days</div></div>`;
 
   const quarters=[{label:'Q1 Jan–Mar',months:[0,1,2]},{label:'Q2 Apr–Jun',months:[3,4,5]},{label:'Q3 Jul–Sep',months:[6,7,8]},{label:'Q4 Oct–Dec',months:[9,10,11]}];
@@ -1556,9 +1597,10 @@ function recalcRevenue(){
   }).join('');
 
   document.getElementById('rev-summary-rows').innerHTML=`
-    <div class="sbar-row"><span class="sl">Annual revenue</span><span class="sv g">${fmtN(totalRev)}</span></div>
+    <div class="sbar-row"><span class="sl">Total revenue</span><span class="sv g">${fmtN(totalRev)}</span></div>
+    ${otherRev>0?`<div class="sbar-row"><span class="sl">Other revenue</span><span class="sv g">${fmtN(otherRev)}</span></div>`:''}
     <div class="sbar-row"><span class="sl">Days billed / available</span><span class="sv">${totalDays} / ${TAX.workdays}</span></div>
-    <div class="sbar-row"><span class="sl">Blended day rate</span><span class="sv">${totalDays>0?fmt(totalRev/totalDays):'£0'}</span></div>
+    <div class="sbar-row"><span class="sl">Blended day rate</span><span class="sv">${totalDays>0?fmt(dayRev/totalDays):'£0'}</span></div>
     <div class="sbar-row"><span class="sl">Utilisation</span><span class="sv">${pct(totalDays/TAX.workdays*100)}</span></div>`;
 
   renderScenarios();
@@ -1900,7 +1942,7 @@ async function sbFetch(path, method='GET', body=null) {
 // ── Collect current state ──
 function collectState() {
   return {
-    pIncomeRows, pFixedRows, pVarRows, pSavingsRows, coExpRows,
+    pIncomeRows, pFixedRows, pVarRows, pSavingsRows, coExpRows, otherRevRows,
     scenarios, monthData, ir35Scores, tax: TAX,
     inputs: {
       salary: document.getElementById('co-salary')?.value,
@@ -1921,6 +1963,7 @@ function applyState(state) {
   if (state.pVarRows)    pVarRows    = state.pVarRows;
   if (state.pSavingsRows) pSavingsRows = state.pSavingsRows;
   if (state.coExpRows)   coExpRows   = state.coExpRows;
+  if (state.otherRevRows) otherRevRows = state.otherRevRows;
   if (state.scenarios)   scenarios   = state.scenarios;
   if (state.monthData)   monthData   = state.monthData;
   if (state.ir35Scores)  ir35Scores  = state.ir35Scores;
