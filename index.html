@@ -721,6 +721,36 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
     <div style="margin-top:6px;font-size:11px;color:var(--text3);font-family:var(--mono);">Days: enter billing days per month. Rate: leave blank to use current day rate above, or override per month.</div>
   </div>
 
+  <!-- Other Revenue -->
+  <div class="sec">
+    <div class="sec-hdr">
+      <div class="sec-lbl">Other Revenue</div>
+      <button class="btn btn-g btn-sm" onclick="addRow('other-rev','otherrev')">+ Add</button>
+    </div>
+    <div class="card">
+      <table class="dtbl">
+        <thead><tr>
+          <th>Description</th>
+          <th class="r">Amount (£)</th>
+          <th class="c" style="width:90px;" title="Recurring monthly or one-off annual lump sum">Type</th>
+          <th class="c" style="width:50px;" title="Did you charge VAT on this revenue?">VAT</th>
+          <th class="r">Annual (£)</th>
+          <th class="c"></th>
+        </tr></thead>
+        <tbody id="other-rev-tbody"></tbody>
+        <tfoot><tr class="tr-total">
+          <td><div class="cell"><span class="cv bold">Total Other Revenue</span></div></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td><div class="cell r"><span class="cv mono g" id="other-rev-total">£0</span></div></td>
+          <td></td>
+        </tr></tfoot>
+      </table>
+      <div style="margin-top:6px;font-size:11px;color:var(--text3);font-family:var(--mono);">Add other income streams (rental, interest, ad-hoc work etc.). Recurring = monthly amount × 12; One-off = single annual amount. VAT is output tax owed to HMRC — shown in company P&amp;L.</div>
+    </div>
+  </div>
+
   <!-- Quarterly summary -->
   <div class="sec">
     <div class="sec-hdr"><div class="sec-lbl">Quarterly Summary — Day Rate</div></div>
@@ -742,32 +772,6 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
           <td><div class="cell r"><span class="cv mono">100%</span></div></td>
         </tr></tfoot>
       </table>
-    </div>
-  </div>
-
-  <!-- Other Revenue -->
-  <div class="sec">
-    <div class="sec-hdr">
-      <div class="sec-lbl">Other Revenue</div>
-      <button class="btn btn-g btn-sm" onclick="addRow('other-rev','otherrev')">+ Add</button>
-    </div>
-    <div class="card">
-      <table class="dtbl">
-        <thead><tr>
-          <th>Description</th>
-          <th class="r">Monthly (£)</th>
-          <th class="r">Annual (£)</th>
-          <th class="c"></th>
-        </tr></thead>
-        <tbody id="other-rev-tbody"></tbody>
-        <tfoot><tr class="tr-total">
-          <td><div class="cell"><span class="cv bold">Total Other Revenue</span></div></td>
-          <td></td>
-          <td><div class="cell r"><span class="cv mono g" id="other-rev-total">£0</span></div></td>
-          <td></td>
-        </tr></tfoot>
-      </table>
-      <div style="margin-top:6px;font-size:11px;color:var(--text3);font-family:var(--mono);">Other revenue (e.g. rental income, interest, ad-hoc work) is added to day rate revenue and flows into company P&amp;L.</div>
     </div>
   </div>
 
@@ -1128,11 +1132,23 @@ function renderRow(row,type){
     <td><div class="cell r"><span class="cv mono" id="savpct-${row.id}">—</span></div></td>
     <td><div class="cell c"><button class="del-btn" onclick="delRow('${row.id}','${type}')">×</button></div></td>`;
 
-  if(type==='otherrev') return `
+  if(type==='otherrev'){
+    const isRecurring = row.recurring !== false;
+    const annVal = isRecurring ? mo*12 : mo;
+    const vatAmt = row.vat ? annVal*(TAX.vatrate/100) : 0;
+    return `
     <td><div class="cell"><input type="text" value="${row.desc}" placeholder="Description" onchange="setFieldNoRender('${row.id}','${type}','desc',this.value)"></div></td>
     <td><div class="cell r"><input type="number" value="${mo}" step="0.01" ${numInput('mo')}></div></td>
-    <td><div class="cell r"><span class="cv mono g" id="ann-${row.id}">${fmt(mo*12)}</span></div></td>
+    <td><div class="cell c">
+      <select style="font-size:11px;padding:2px 4px;" onchange="setField('${row.id}','${type}','recurring',this.value==='recurring')">
+        <option value="recurring" ${isRecurring?'selected':''}>Monthly</option>
+        <option value="oneoff" ${!isRecurring?'selected':''}>One-off</option>
+      </select>
+    </div></td>
+    <td><div class="cell c"><input type="checkbox" ${row.vat?'checked':''} title="Charged VAT on this revenue" onchange="setField('${row.id}','${type}','vat',this.checked)" style="accent-color:var(--blue)"></div></td>
+    <td><div class="cell r"><span class="cv mono g" id="ann-${row.id}">${fmt(annVal)}${vatAmt>0?'<span style="font-size:10px;color:var(--text3);"> +'+fmt(vatAmt)+' VAT</span>':''}</span></div></td>
     <td><div class="cell c"><button class="del-btn" onclick="delRow('${row.id}','${type}')">×</button></div></td>`;
+  }
 
   if(type==='coexp') {
     const vatReclaim=row.vat?(row.mo*12/1)*(TAX.vatrate/100)*(row.halfVat?0.5:1):0;
@@ -1164,7 +1180,13 @@ function updateAnnual(id){
   const row=allRows.find(r=>r.id===id);
   if(!row)return;
   const el=document.getElementById('ann-'+id);
-  if(el)el.textContent=fmt((row.mo||0)*12);
+  if(el){
+    // otherrev rows: one-off uses mo directly (annual lump); recurring uses mo*12
+    const isOtherRev=otherRevRows.some(r=>r.id===id);
+    const annVal=isOtherRev?(row.recurring!==false?(row.mo||0)*12:(row.mo||0)):(row.mo||0)*12;
+    const vatAmt=isOtherRev&&row.vat?annVal*(TAX.vatrate/100):0;
+    el.innerHTML=fmt(annVal)+(vatAmt>0?`<span style="font-size:10px;color:var(--text3);"> +${fmt(vatAmt)} VAT</span>`:'');
+  }
   recalcAll();
 }
 
@@ -1200,7 +1222,8 @@ function addRow(tbodyId,type){
     fixed:{},
     variable:{cat:'Living'},
     savings:{cat:'Savings'},
-    coexp:{cat:'Other',vat:false,halfVat:false,bik:false}
+    coexp:{cat:'Other',vat:false,halfVat:false,bik:false},
+    otherrev:{recurring:true,vat:false}
   };
   arr.push({id:uid(),desc:'',mo:0,...(defaults[type]||{})});
   renderAll();
@@ -1430,13 +1453,14 @@ function recalcCompany(){
     const ann=(r.mo||0)*12;
     return s+ann*(TAX.vatrate/100)*(r.halfVat?0.5:1);
   },0);
+  const otherRevVAT=parseFloat(document.getElementById('co-rev-disp')?.dataset.otherRevVAT)||0;
 
   const expBik=calcExpBik();
   const erNI=calcErNI(salary);
   const carBikClass1A=calcBIKValue()*(TAX.ernirate/100);
   const totalBikClass1A=carBikClass1A+expBik.class1A;
 
-  const profitPreCT=rev-salary-pension-expAnn-erNI-totalBikClass1A+vatReclaim;
+  const profitPreCT=rev-salary-pension-expAnn-erNI-totalBikClass1A+vatReclaim-otherRevVAT;
   const ct=calcCT(Math.max(0,profitPreCT));
   const netProfit=Math.max(0,profitPreCT)-ct;
   const retained=netProfit-divs;
@@ -1464,6 +1488,7 @@ function recalcCompany(){
     ...(expBik.class1A>0?[{label:`Less: benefits BIK — Class 1A NIC (${TAX.ernirate}%) on ${fmt(expBik.annValue)} [${expBik.rows.map(r=>r.desc).join(', ')}]`,ann:-expBik.class1A,cls:''}]:[]),
     {label:'Less: company expenses',ann:-expAnn,cls:''},
     ...(vatReclaim>0?[{label:'Add: VAT reclaimable on expenses',ann:vatReclaim,cls:'g'}]:[]),
+    ...(otherRevVAT>0?[{label:`Less: output VAT owed on other revenue (${TAX.vatrate}%)`,ann:-otherRevVAT,cls:'r'}]:[]),
     {label:'Profit before corporation tax',ann:profitPreCT,cls:profitPreCT>=0?'g':'r',bold:true},
     {label:`Less: corporation tax (${TAX.ctsmall}%–${TAX.ctmain}% marginal relief)`,ann:-ct,cls:'r'},
     {label:'Net profit after CT',ann:netProfit,cls:'g',bold:true},
@@ -1562,14 +1587,16 @@ function recalcRevenue(){
     const el=document.getElementById('mtotal-'+i);
     if(el)el.textContent='£'+Math.round(rev).toLocaleString('en-GB');
   });
-  const otherRev=otherRevRows.reduce((s,r)=>s+(r.mo||0)*12,0);
+  const otherRev=otherRevRows.reduce((s,r)=>s+(r.recurring!==false?(r.mo||0)*12:(r.mo||0)),0);
+  const otherRevVAT=otherRevRows.reduce((s,r)=>{const ann=r.recurring!==false?(r.mo||0)*12:(r.mo||0);return s+(r.vat?ann*(TAX.vatrate/100):0);},0);
   const totalRev=dayRev+otherRev;
   // Update other rev total display
   const orTotalEl=document.getElementById('other-rev-total');
-  if(orTotalEl)orTotalEl.textContent=fmtN(otherRev);
+  if(orTotalEl)orTotalEl.textContent=fmtN(otherRev)+(otherRevVAT>0?' +'+fmtN(otherRevVAT)+' VAT':'');
 
   document.getElementById('co-rev-disp').textContent=fmtN(totalRev);
   document.getElementById('co-rev-disp').dataset.raw=totalRev;
+  document.getElementById('co-rev-disp').dataset.otherRevVAT=otherRevVAT;
   document.getElementById('co-days-disp').textContent=totalDays;
   document.getElementById('co-rate-disp').textContent=totalDays>0?fmt(dayRev/totalDays):'£0';
   document.getElementById('rev-total-days').textContent=totalDays;
@@ -2161,14 +2188,14 @@ function renderSavesDropdown() {
     ? '<div style="padding:10px 14px;font-size:12px;color:var(--text3);">No saves yet — click Save to create one</div>'
     : allSaves.map(s => `
         <div onclick="loadSave('${s.id}',${isAdminMode});closeSavesDropdown()"
-          style="padding:9px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;border-bottom:1px solid var(--border);font-size:13px;${s.id===currentSaveId?'background:var(--blue-bg);':''}"
-          onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='${s.id===currentSaveId?'var(--blue-bg)':''}'"
+          style="padding:9px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;border-bottom:1px solid var(--border);font-size:13px;color:#111;${s.id===currentSaveId?'background:var(--blue-bg);':''}"
+          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='${s.id===currentSaveId?'var(--blue-bg)':''}'"
         >
           <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
-            <span style="font-weight:${s.id===currentSaveId?'600':'400'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.name}${s.id===currentSaveId?' ✓':''}</span>
-            ${multiUser && s.user_email ? `<span style="font-size:10px;color:var(--amber);font-family:var(--mono);letter-spacing:.03em;">${s.user_email}</span>` : ''}
+            <span style="color:#111;font-weight:${s.id===currentSaveId?'600':'400'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.name}${s.id===currentSaveId?' ✓':''}</span>
+            ${multiUser && s.user_email ? `<span style="font-size:10px;color:#b07d00;font-family:var(--mono);letter-spacing:.03em;">${s.user_email}</span>` : ''}
           </div>
-          <span style="font-size:11px;color:var(--text3);font-family:var(--mono);white-space:nowrap;flex-shrink:0;">${new Date(s.updated_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</span>
+          <span style="font-size:11px;color:#555;font-family:var(--mono);white-space:nowrap;flex-shrink:0;">${new Date(s.updated_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</span>
         </div>`).join('');
 }
 
