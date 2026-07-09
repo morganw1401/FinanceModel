@@ -202,12 +202,14 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 
 /* Print / PDF export */
 @media print {
+  :root{--text2:#3a3730;--text3:#5a5750;--border:#c8c3b8;}
   body{background:#fff;}
   .app-header,.sheet-bar,.admin-panel-bar,.readonly-banner,.modal-overlay,.save-indicator,#saves-menu{display:none !important;}
   .main{max-width:100%;padding:0;margin:0;}
   .sheet{display:block !important;page-break-after:always;}
   .sheet:last-child{page-break-after:auto;}
   .print-title{display:block !important;}
+  select{font-size:10px !important;}
 }
 .print-title{display:none;font-family:var(--mono);font-size:14px;font-weight:600;padding:12px 0;border-bottom:2px solid #000;margin-bottom:16px;}
 </style>
