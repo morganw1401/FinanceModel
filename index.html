@@ -199,6 +199,17 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
   .deadline-grid{grid-template-columns:repeat(2,1fr);}
   .main{padding:14px;}
 }
+
+/* Print / PDF export */
+@media print {
+  body{background:#fff;}
+  .app-header,.sheet-bar,.admin-panel-bar,.readonly-banner,.modal-overlay,.save-indicator,#saves-menu{display:none !important;}
+  .main{max-width:100%;padding:0;margin:0;}
+  .sheet{display:block !important;page-break-after:always;}
+  .sheet:last-child{page-break-after:auto;}
+  .print-title{display:block !important;}
+}
+.print-title{display:none;font-family:var(--mono);font-size:14px;font-weight:600;padding:12px 0;border-bottom:2px solid #000;margin-bottom:16px;}
 </style>
 </head>
 <body>
@@ -323,6 +334,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
     <button class="btn-save" id="btn-save-main" onclick="saveToStorage()">↓ Save</button>
     <button class="btn-admin" id="btn-save-as" onclick="saveAs()" title="Save as new version">Save as...</button>
     <button class="btn-admin" onclick="shareWithAccountant()" title="Generate read-only link for accountant" style="color:#a0bce0;">⤴ Share</button>
+    <button class="btn-admin" onclick="exportPDF()" title="Export all sheets as PDF" style="color:#c8b8e0;">⬇ PDF</button>
     <button class="btn-admin" onclick="deleteSave()" style="color:#f08080;" title="Delete current save">✕</button>
     <button class="btn-admin" onclick="openAdmin()">⚙ Tax Rates</button>
     <button class="btn-admin" id="btn-owner-admin" onclick="openOwnerAdmin()" style="display:none;color:var(--amber);border-color:#553300;">👑 Admin</button>
@@ -354,6 +366,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 </div>
 
 <div class="main">
+
+<div class="print-title" id="print-title"></div>
 
 <!-- ══════════════════════════════════════════════════════ -->
 <!-- SHEET 1: PERSONAL -->
@@ -1918,6 +1932,7 @@ function saveAdmin(){
     const emails = emailsEl.value.split('\n').map(e=>e.trim().toLowerCase()).filter(Boolean);
     OWNER_EMAILS.length = 0;
     OWNER_EMAILS.push(...emails);
+    try { localStorage.setItem(OWNER_EMAILS_KEY, JSON.stringify(OWNER_EMAILS)); } catch(e) {}
     // Show/hide admin button based on updated list
     const btn = document.getElementById('btn-owner-admin');
     if (btn) btn.style.display = isOwner() ? 'inline-flex' : 'none';
@@ -1936,9 +1951,17 @@ const STORAGE_KEY = 'mdw_calculator_v2';
 
 // ── Owner admin config — add email addresses of owners here ──
 // These users see the 👑 Admin button and can view any user's saves
+const OWNER_EMAILS_KEY = 'mdw_owner_emails';
 const OWNER_EMAILS = [
   'morgan@mdwconsultingltd.com',  // replace with your actual email
 ];
+// Merge in any owner emails added via the admin panel on a previous visit —
+// the textarea in saveAdmin() only mutated this array in memory, so anything
+// added there was lost on refresh. Persist/restore via localStorage instead.
+try {
+  const savedOwnerEmails = JSON.parse(localStorage.getItem(OWNER_EMAILS_KEY) || '[]');
+  savedOwnerEmails.forEach(e => { if (e && !OWNER_EMAILS.includes(e)) OWNER_EMAILS.push(e); });
+} catch(e) {}
 
 let currentSaveId = null;
 let currentSaveName = 'Unsaved';
@@ -2159,6 +2182,16 @@ async function shareWithAccountant() {
     prompt('Share this read-only link with your accountant (copied to clipboard):', link);
     setIndicator('Share link copied ✓', '#5de0a0', 3000);
   } catch(e) { alert('Share failed: ' + e.message); }
+}
+
+// ── PDF export ──
+function exportPDF() {
+  closeSavesDropdown();
+  const title = document.getElementById('print-title');
+  const dateStr = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'long', year:'numeric' });
+  title.textContent = `MDW Consulting — Financial Calculator (${currentSaveName}) — ${dateStr}`;
+  document.title = 'MDW Financial Calculator — ' + currentSaveName;
+  window.print();
 }
 
 // ── Load shared view (read-only) ──
